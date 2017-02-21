@@ -76,7 +76,7 @@ namespace Atomic
 	{
 		Component* component = static_cast<Component*> (eventData[Atomic::ComponentRemoved::P_COMPONENT].GetPtr());
 		if (component == this) {
-			for (HashMap<IntVector2, GeomReplicator*>::ConstIterator i = vegReplicators_.Begin(); i != vegReplicators_.End(); ++i)
+			for (HashMap<IntVector2, SharedPtr<GeomReplicator>>::Iterator i = vegReplicators_.Begin(); i != vegReplicators_.End(); ++i)
 			{
 				i->second_->Destroy();
 			}
@@ -95,7 +95,7 @@ namespace Atomic
 	{
 		bool enabled = IsEnabledEffective();
 
-		for (HashMap<IntVector2, GeomReplicator*>::ConstIterator i = vegReplicators_.Begin(); i != vegReplicators_.End(); ++i)
+		for (HashMap<IntVector2, SharedPtr<GeomReplicator>>::Iterator i = vegReplicators_.Begin(); i != vegReplicators_.End(); ++i)
 		{
 			i->second_->SetEnabled(false);
 		}
@@ -118,7 +118,7 @@ namespace Atomic
 			{
 				terrain_ = terrains[0];
 				SubscribeToEvent(node->GetScene(), E_SCENEDRAWABLEUPDATEFINISHED, ATOMIC_HANDLER(FoliageSystem, HandleDrawableUpdateFinished));
-				SubscribeToEvent(E_POSTRENDERUPDATE, ATOMIC_HANDLER(FoliageSystem, HandlePostUpdate));
+				SubscribeToEvent(E_BEGINFRAME, ATOMIC_HANDLER(FoliageSystem, HandlePostUpdate));
 				// TODO: Make this better
 				// If we try to get height of the terrain right away it will be zero because it's not finished loading. So I wait until the scene has finished
 				// updating all its drawables (for want of a better event) and then initialize the grass if it isn't already initialized.
@@ -165,7 +165,17 @@ namespace Atomic
 			
 			if (lastSector_ != sector)
 			{
-				vegReplicators_.Clear();
+				for (HashMap<IntVector2, SharedPtr<GeomReplicator>>::Iterator i = vegReplicators_.Begin(); i != vegReplicators_.End(); ++i) {
+
+					SharedPtr<GeomReplicator> rep;
+					vegReplicators_.TryGetValue(i->first_, rep);
+					rep->Destroy();
+					//	ATOMIC_LOGDEBUG("STUPID THING IS " + i->second_->GetID());
+					//}
+					vegReplicators_.Clear();
+				}
+
+
 				lastSector_ = sector;
 
 				ATOMIC_LOGDEBUG("New grass " + pos.ToString() + " Sector: " + sector.ToString());
@@ -202,7 +212,9 @@ namespace Atomic
 		Model *pModel = cache->GetResource<Model>("Models/Veg/vegbrush.mdl");
 		SharedPtr<Model> cloneModel = pModel->Clone();
 
-		GeomReplicator *grass = node_->CreateComponent<GeomReplicator>();
+
+		Node *grassnode = node_->CreateChild("GrassNode");
+		SharedPtr<GeomReplicator> grass = SharedPtr<GeomReplicator>(grassnode->CreateComponent<GeomReplicator>());
 		grass->SetModel(cloneModel);
 		grass->SetMaterial(cache->GetResource<Material>("Models/Veg/veg-alphamask.xml"));
 

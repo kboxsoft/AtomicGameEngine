@@ -73,7 +73,7 @@ namespace Atomic
 		virtual void OnSetEnabled();
 		//Grass stuff
 		PODVector<PRotScale> qpList_;
-		HashMap<IntVector2, GeomReplicator*> vegReplicators_;
+		HashMap<IntVector2, SharedPtr<GeomReplicator>> vegReplicators_;
 		WeakPtr<Node> nodeRep_;
 		SharedPtr<Terrain> terrain_;
 		SharedPtr<Node> node_;
