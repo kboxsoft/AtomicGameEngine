@@ -299,14 +299,14 @@ void GeomReplicator::AnimateVerts()
                 }
             }
 
-            // dbg text3d
-            #ifdef VERT_INDEX_VISUAL
-            if ( showGeomVertIndices_ && currentVertexIdx_ == 0 && i == 0 )
-            {
-                Vector3 pos = animatedVertexList_[vertIdx].origPos + animatedVertexList_[vertIdx].deltaMovement;
-                nodeText3DVertList_[vertIdx]->SetPosition(pos);
-            }
-            #endif
+            //// dbg text3d
+            //#ifdef VERT_INDEX_VISUAL
+            //if ( showGeomVertIndices_ && currentVertexIdx_ == 0 && i == 0 )
+            //{
+            //    Vector3 pos = animatedVertexList_[vertIdx].origPos + animatedVertexList_[vertIdx].deltaMovement;
+            //    nodeText3DVertList_[vertIdx]->SetPosition(pos);
+            //}
+            //#endif
         }
     }
 
@@ -356,33 +356,33 @@ void GeomReplicator::WindAnimationEnabled(bool enable)
     }
 }
 
-void GeomReplicator::ShowGeomVertIndices(bool show)
-{
-    #ifdef VERT_INDEX_VISUAL
-    showGeomVertIndices_ = show;
+//void GeomReplicator::ShowGeomVertIndices(bool show)
+//{
+//    #ifdef VERT_INDEX_VISUAL
+//    showGeomVertIndices_ = show;
+//
+//    for ( unsigned i = 0; i < nodeText3DVertList_.Size(); ++i )
+//    {
+//        nodeText3DVertList_[i]->SetEnabled( showGeomVertIndices_ );
+//    }
+//    #endif
+//}
 
-    for ( unsigned i = 0; i < nodeText3DVertList_.Size(); ++i )
-    {
-        nodeText3DVertList_[i]->SetEnabled( showGeomVertIndices_ );
-    }
-    #endif
-}
-
-void GeomReplicator::RenderGeomVertIndices()
-{
-    #ifdef VERT_INDEX_VISUAL
-    if ( showGeomVertIndices_ )
-    {
-        DebugRenderer *dbgRenderer = GetScene()->GetComponent<DebugRenderer>();
-
-        for ( unsigned i = 1; i < nodeText3DVertList_.Size(); ++i )
-        {
-            dbgRenderer->AddLine( nodeText3DVertList_[i-1]->GetPosition(), nodeText3DVertList_[i]->GetPosition(), Color::GREEN );
-        }
-        dbgRenderer->AddLine( nodeText3DVertList_[0]->GetPosition(), nodeText3DVertList_[nodeText3DVertList_.Size()-1]->GetPosition(), Color::GREEN );
-    }
-    #endif
-}
+//void GeomReplicator::RenderGeomVertIndices()
+//{
+//    #ifdef VERT_INDEX_VISUAL
+//    if ( showGeomVertIndices_ )
+//    {
+//        DebugRenderer *dbgRenderer = GetScene()->GetComponent<DebugRenderer>();
+//
+//        for ( unsigned i = 1; i < nodeText3DVertList_.Size(); ++i )
+//        {
+//            dbgRenderer->AddLine( nodeText3DVertList_[i-1]->GetPosition(), nodeText3DVertList_[i]->GetPosition(), Color::GREEN );
+//        }
+//        dbgRenderer->AddLine( nodeText3DVertList_[0]->GetPosition(), nodeText3DVertList_[nodeText3DVertList_.Size()-1]->GetPosition(), Color::GREEN );
+//    }
+//    #endif
+//}
 
 void GeomReplicator::HandleUpdate(StringHash eventType, VariantMap& eventData)
 {
@@ -397,13 +397,7 @@ void GeomReplicator::HandleUpdate(StringHash eventType, VariantMap& eventData)
         timerUpdate_.Reset();
     }
 
-    RenderGeomVertIndices();
-}
-
-void GeomReplicator::Destroy()
-{
-	UnsubscribeFromAllEvents();
-	DoAutoRemove(AutoRemoveMode::REMOVE_COMPONENT);
+   // RenderGeomVertIndices();
 }
 
 }

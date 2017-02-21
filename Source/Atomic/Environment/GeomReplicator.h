@@ -97,7 +97,7 @@ public:
     }
 
 	GeomReplicator(Context *context)
-		: StaticModel(context), numVertsPerGeom(0), batchCount_(0), showGeomVertIndices_(false)
+		: StaticModel(context), numVertsPerGeom(0), batchCount_(0)//, showGeomVertIndices_(false)
     {
     }
 
@@ -110,13 +110,12 @@ public:
     bool ConfigWindVelocity(const PODVector<unsigned> &vertIndicesToMove, unsigned batchCount, 
                             const Vector3 &velocity, float cycleTimer);
     void WindAnimationEnabled(bool enable);
-    void ShowGeomVertIndices(bool show);
-	void Destroy();
+   // void ShowGeomVertIndices(bool show);
 
 protected:
     unsigned ReplicateIndices(IndexBuffer *idxbuffer, unsigned numVertices, unsigned expandSize);
     void AnimateVerts();
-    void RenderGeomVertIndices();
+   // void RenderGeomVertIndices();
     void HandleUpdate(StringHash eventType, VariantMap& eventData);
 
 protected:
@@ -132,8 +131,8 @@ protected:
     float                       timeStepAccum_;
 
     // dbg
-    Vector<Node*>               nodeText3DVertList_;
-    bool                        showGeomVertIndices_;
+  //  Vector<Node*>               nodeText3DVertList_;
+ //   bool                        showGeomVertIndices_;
 
 protected:
     enum FrameRateType { FrameRate_MSec = 32    };

@@ -72,12 +72,12 @@ namespace Atomic
 		/// Handle enabled/disabled state change.
 		virtual void OnSetEnabled();
 		//Grass stuff
-		PODVector<PRotScale> qpList_;
-		HashMap<IntVector2, SharedPtr<GeomReplicator>> vegReplicators_;
-		WeakPtr<Node> nodeRep_;
+		//PODVector<PRotScale> qpList_;
+		HashMap<IntVector2, GeomReplicator*> vegReplicators_;
 		SharedPtr<Terrain> terrain_;
 		SharedPtr<Node> node_;
 		IntVector2 lastSector_;
+		bool sectorSet_;
 	};
 
 }

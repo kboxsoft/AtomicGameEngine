@@ -76,9 +76,9 @@ namespace Atomic
 	{
 		Component* component = static_cast<Component*> (eventData[Atomic::ComponentRemoved::P_COMPONENT].GetPtr());
 		if (component == this) {
-			for (HashMap<IntVector2, SharedPtr<GeomReplicator>>::Iterator i = vegReplicators_.Begin(); i != vegReplicators_.End(); ++i)
+			for (HashMap<IntVector2, GeomReplicator*>::Iterator i = vegReplicators_.Begin(); i != vegReplicators_.End(); ++i)
 			{
-				i->second_->Destroy();
+				//i->second_->Destroy();
 			}
 		}
 
@@ -95,7 +95,7 @@ namespace Atomic
 	{
 		bool enabled = IsEnabledEffective();
 
-		for (HashMap<IntVector2, SharedPtr<GeomReplicator>>::Iterator i = vegReplicators_.Begin(); i != vegReplicators_.End(); ++i)
+		for (HashMap<IntVector2, GeomReplicator*>::Iterator i = vegReplicators_.Begin(); i != vegReplicators_.End(); ++i)
 		{
 			i->second_->SetEnabled(false);
 		}
@@ -135,7 +135,8 @@ namespace Atomic
 
 	void FoliageSystem::HandlePostUpdate(StringHash eventType, VariantMap& eventData)
 	{
-
+		if (!initialized_)
+			return;
 
 		Renderer* r = GetSubsystem<Renderer>();
 		if (!r)
@@ -163,19 +164,15 @@ namespace Atomic
 			//ATOMIC_LOGDEBUG(sector.ToString());
 			Vector3 pos = Vector3(sector.x_ * cellsize.x_, 0, sector.y_ * cellsize.y_);
 			
-			if (lastSector_ != sector)
+			if (sectorSet_ && lastSector_ != sector)
 			{
-				for (HashMap<IntVector2, SharedPtr<GeomReplicator>>::Iterator i = vegReplicators_.Begin(); i != vegReplicators_.End(); ++i) {
 
-					SharedPtr<GeomReplicator> rep;
-					vegReplicators_.TryGetValue(i->first_, rep);
-					rep->Destroy();
-					//	ATOMIC_LOGDEBUG("STUPID THING IS " + i->second_->GetID());
-					//}
-					vegReplicators_.Clear();
+				for (HashMap<IntVector2, GeomReplicator*>::Iterator i = vegReplicators_.Begin(); i != vegReplicators_.End(); ++i) {
+						i->second_->Remove();
+						vegReplicators_.Erase(i->first_);
 				}
 
-
+				sectorSet_ = true;
 				lastSector_ = sector;
 
 				ATOMIC_LOGDEBUG("New grass " + pos.ToString() + " Sector: " + sector.ToString());
@@ -194,7 +191,7 @@ namespace Atomic
 		}
 
 		ResourceCache* cache = GetSubsystem<ResourceCache>();
-
+		PODVector<PRotScale> qpList_;
 	//	Vector3 rotatedpos = (rot.Inverse() * qp.pos);  //  (rot.Inverse() * qp.pos) + terrainpos;
 		for (unsigned i = 0; i < NUM_OBJECTS; ++i)
 		{
@@ -213,8 +210,8 @@ namespace Atomic
 		SharedPtr<Model> cloneModel = pModel->Clone();
 
 
-		Node *grassnode = node_->CreateChild("GrassNode");
-		SharedPtr<GeomReplicator> grass = SharedPtr<GeomReplicator>(grassnode->CreateComponent<GeomReplicator>());
+		Node *grassnode = node_->CreateChild();
+		GeomReplicator *grass = grassnode->CreateComponent<GeomReplicator>();
 		grass->SetModel(cloneModel);
 		grass->SetMaterial(cache->GetResource<Material>("Models/Veg/veg-alphamask.xml"));
 
