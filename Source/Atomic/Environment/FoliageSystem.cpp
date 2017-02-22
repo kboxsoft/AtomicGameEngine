@@ -147,7 +147,7 @@ namespace Atomic
 			return;
 
 		IntVector2 terrainsize = (terrain_->GetNumPatches() * terrain_->GetPatchSize());
-		IntVector2 cellsize = terrainsize / 16;
+		IntVector2 cellsize = terrainsize / 8;
 
 		Camera *cam =  viewport->GetCamera();
 		if (cam) {

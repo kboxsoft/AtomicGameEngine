@@ -234,6 +234,8 @@ bool GeomReplicator::ConfigWindVelocity(const PODVector<unsigned> &vertIndicesTo
     currentVertexIdx_  = 0;
     timeStepAccum_     = 0.0f;
 
+	this->GetMaterial()->SetShaderParameter("Fade", 0);
+
     // validate vert indices
     assert(vertIndicesToMove.Size() <= numVertsPerGeom && "number of indices to move is greater than the orig geom index size");
 
@@ -393,7 +395,7 @@ void GeomReplicator::HandleUpdate(StringHash eventType, VariantMap& eventData)
     if ( timerUpdate_.GetMSec(false) >= FrameRate_MSec )
     {
         AnimateVerts();
-
+		this->GetMaterial()->SetShaderParameter("Fade", 0.5);
         timerUpdate_.Reset();
     }
 
