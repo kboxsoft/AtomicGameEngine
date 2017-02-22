@@ -56,7 +56,7 @@ namespace Atomic
 		/// Register object factory. Drawable must be registered first.
 		static void RegisterObject(Context* context);
 
-		void DrawGrass(Vector3 position, IntVector2 sector, IntVector2 cellsize);
+		void DrawGrass(IntVector2 sector, IntVector2 cellsize);
 
 	protected:
 

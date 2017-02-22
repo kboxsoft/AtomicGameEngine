@@ -161,38 +161,62 @@ namespace Atomic
 		
 
 			//ATOMIC_LOGDEBUG(sector.ToString());
-			Vector3 pos = Vector3((sector.x_ * cellsize.x_) - cellsize.x_, 0, (sector.y_ * cellsize.y_) - cellsize.y_);
+
 			
 			if (sectorSet_ && lastSector_ != sector)
 			{
 
+				PODVector<IntVector2> activeset;
+
+				activeset.Push(sector);
+				activeset.Push(sector + IntVector2(1, 1));
+				activeset.Push(sector + IntVector2(1, -1));
+				activeset.Push(sector + IntVector2(-1, 1));
+				activeset.Push(sector + IntVector2(-1, -1));
+				activeset.Push(sector + IntVector2(1, 0));
+				activeset.Push(sector + IntVector2(0, 1));
+				activeset.Push(sector + IntVector2(-1, 0));
+				activeset.Push(sector + IntVector2(0, -1));
+
+
 				for (HashMap<IntVector2, GeomReplicator*>::Iterator i = vegReplicators_.Begin(); i != vegReplicators_.End(); ++i) {
+					if (!activeset.Contains(i->first_)) {
 						i->second_->Remove();
 						vegReplicators_.Erase(i->first_);
+					}
 				}
 
 				sectorSet_ = true;
 				lastSector_ = sector;
 
-				ATOMIC_LOGDEBUG("New grass " + pos.ToString() + " Sector: " + sector.ToString());
+				for (PODVector<IntVector2> ::Iterator i = activeset.Begin(); i != activeset.End(); ++i) {
+					if (!vegReplicators_.Contains(i->Data())) {
+						DrawGrass(i->Data(), cellsize);
+					}
+				}
 				
-				DrawGrass(pos, sector, cellsize);
-	/*			DrawGrass(pos, sector + IntVector2(1,1), cellsize);
-				DrawGrass(pos, sector + IntVector2(1, -1), cellsize);
-				DrawGrass(pos, sector + IntVector2(-1, 1), cellsize);
-				DrawGrass(pos, sector + IntVector2(-1, -1));*/
+				//DrawGrass(sector, cellsize);
+				//DrawGrass(sector + IntVector2(1,1), cellsize);
+				//DrawGrass(sector + IntVector2(1, -1), cellsize);
+				//DrawGrass(sector + IntVector2(-1, 1), cellsize);
+				//DrawGrass(sector + IntVector2(-1, -1), cellsize);
+				//DrawGrass(sector + IntVector2(1, 0), cellsize);
+				//DrawGrass(sector + IntVector2(0, 1), cellsize);
+				//DrawGrass(sector + IntVector2(-1, 0), cellsize);
+				//DrawGrass(sector + IntVector2(0, -1), cellsize);
 			}
 		}
 	}
 
-	void FoliageSystem::DrawGrass(Vector3 position, IntVector2 sector, IntVector2 cellsize) {
+	void FoliageSystem::DrawGrass(IntVector2 sector, IntVector2 cellsize) {
 		const unsigned NUM_OBJECTS = 1000;
 
 		if (!terrain_){
 			ATOMIC_LOGERROR("Foliage system couldn't find terrain");
 			return;
 		}
-
+		Vector3 position = Vector3((sector.x_ * cellsize.x_), 0, (sector.y_ * cellsize.y_));
+		ATOMIC_LOGDEBUG("New grass " + position.ToString() + " Sector: " + sector.ToString());
 		ResourceCache* cache = GetSubsystem<ResourceCache>();
 		PODVector<PRotScale> qpList_;
 	//	Vector3 rotatedpos = (rot.Inverse() * qp.pos);  //  (rot.Inverse() * qp.pos) + terrainpos;
