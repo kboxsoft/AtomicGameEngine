@@ -78,7 +78,7 @@ namespace Atomic
 		if (component == this) {
 			for (HashMap<IntVector2, GeomReplicator*>::Iterator i = vegReplicators_.Begin(); i != vegReplicators_.End(); ++i)
 			{
-				//i->second_->Destroy();
+				i->second_->Remove();
 			}
 		}
 
@@ -149,7 +149,6 @@ namespace Atomic
 		IntVector2 terrainsize = (terrain_->GetNumPatches() * terrain_->GetPatchSize());
 		IntVector2 cellsize = terrainsize / 16;
 
-
 		Camera *cam =  viewport->GetCamera();
 		if (cam) {
 			Vector3 campos = cam->GetNode()->GetPosition();
@@ -158,11 +157,11 @@ namespace Atomic
 			IntVector2 campos2d = IntVector2(campos.x_, campos.z_);
 
 
-			IntVector2 sector = IntVector2(  floor(campos2d.x_ / cellsize.x_) -1, floor(campos2d.y_ / cellsize.y_) -1);
+			IntVector2 sector = IntVector2(  floor(campos2d.x_ / cellsize.x_), floor(campos2d.y_ / cellsize.y_));
 		
 
 			//ATOMIC_LOGDEBUG(sector.ToString());
-			Vector3 pos = Vector3(sector.x_ * cellsize.x_, 0, sector.y_ * cellsize.y_);
+			Vector3 pos = Vector3((sector.x_ * cellsize.x_) - cellsize.x_, 0, (sector.y_ * cellsize.y_) - cellsize.y_);
 			
 			if (sectorSet_ && lastSector_ != sector)
 			{
@@ -177,12 +176,16 @@ namespace Atomic
 
 				ATOMIC_LOGDEBUG("New grass " + pos.ToString() + " Sector: " + sector.ToString());
 				
-				DrawGrass(pos, sector);
+				DrawGrass(pos, sector, cellsize);
+	/*			DrawGrass(pos, sector + IntVector2(1,1), cellsize);
+				DrawGrass(pos, sector + IntVector2(1, -1), cellsize);
+				DrawGrass(pos, sector + IntVector2(-1, 1), cellsize);
+				DrawGrass(pos, sector + IntVector2(-1, -1));*/
 			}
 		}
 	}
 
-	void FoliageSystem::DrawGrass(Vector3 position, IntVector2 sector) {
+	void FoliageSystem::DrawGrass(Vector3 position, IntVector2 sector, IntVector2 cellsize) {
 		const unsigned NUM_OBJECTS = 1000;
 
 		if (!terrain_){
@@ -197,9 +200,8 @@ namespace Atomic
 		{
 			PRotScale qp;
 			
-			int cellsize = 32;
 
-			qp.pos = (node_->GetRotation().Inverse() * Vector3(Random(cellsize), 0.0f, Random(cellsize))) + (node_->GetRotation().Inverse() * position);
+			qp.pos = (node_->GetRotation().Inverse() * Vector3(Random(cellsize.x_), 0.0f, Random(cellsize.y_))) + (node_->GetRotation().Inverse() * position);
 			qp.rot = Quaternion(0.0f, Random(360.0f), 0.0f);
 			qp.pos.y_ = terrain_->GetHeight(node_->GetRotation() * qp.pos) - 0.2f;
 			qp.scale = 2.5f + Random(2.0f);

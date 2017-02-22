@@ -56,7 +56,7 @@ namespace Atomic
 		/// Register object factory. Drawable must be registered first.
 		static void RegisterObject(Context* context);
 
-		void DrawGrass(Vector3 position, IntVector2 sector);
+		void DrawGrass(Vector3 position, IntVector2 sector, IntVector2 cellsize);
 
 	protected:
 
@@ -72,7 +72,6 @@ namespace Atomic
 		/// Handle enabled/disabled state change.
 		virtual void OnSetEnabled();
 		//Grass stuff
-		//PODVector<PRotScale> qpList_;
 		HashMap<IntVector2, GeomReplicator*> vegReplicators_;
 		SharedPtr<Terrain> terrain_;
 		SharedPtr<Node> node_;
