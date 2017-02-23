@@ -147,7 +147,7 @@ namespace Atomic
 			return;
 
 		IntVector2 terrainsize = (terrain_->GetNumPatches() * terrain_->GetPatchSize());
-		IntVector2 cellsize = terrainsize / 16;
+		IntVector2 cellsize = terrainsize / 32;
 
 		Camera *cam =  viewport->GetCamera();
 		if (cam) {
@@ -157,26 +157,42 @@ namespace Atomic
 			IntVector2 campos2d = IntVector2(campos.x_, campos.z_);
 
 
-			IntVector2 sector = IntVector2(  floor(campos2d.x_ / cellsize.x_) -1, floor(campos2d.y_ / cellsize.y_));
+			IntVector2 sector = IntVector2(  floor(campos2d.x_ / cellsize.x_) - 1, floor(campos2d.y_ / cellsize.y_) -1);
 		
 
-			ATOMIC_LOGDEBUG(sector.ToString());
+			//ATOMIC_LOGDEBUG(sector.ToString());
 
 			
 			if (lastSector_ != sector)
 			{
+				if (sector.x_ > lastSector_.x_) {
+					ATOMIC_LOGDEBUG("Moved +X");
+
+				}
+				if (sector.x_ < lastSector_.x_) {
+					ATOMIC_LOGDEBUG("Moved -X");
+				}
+				if (sector.y_ > lastSector_.y_) {
+					ATOMIC_LOGDEBUG("Moved +Z");
+				}
+				if (sector.y_ < lastSector_.y_) {
+					ATOMIC_LOGDEBUG("Moved -Z");
+			    }
+
+
 
 				PODVector<IntVector2> activeset;
 
 				activeset.Push(sector);
 				activeset.Push(sector + IntVector2(1, 1));
-				activeset.Push(sector + IntVector2(1, -1));
 				activeset.Push(sector + IntVector2(-1, 1));
 				activeset.Push(sector + IntVector2(-1, -1));
-				activeset.Push(sector + IntVector2(1, 0));
+				activeset.Push(sector + IntVector2(1, -1));
+
+				activeset.Push(sector + IntVector2(0, -1));
 				activeset.Push(sector + IntVector2(0, 1));
 				activeset.Push(sector + IntVector2(-1, 0));
-				activeset.Push(sector + IntVector2(0, -1));
+				activeset.Push(sector + IntVector2(1, 0));
 
 				//grass remove unused
 				for (HashMap<IntVector2, GeomReplicator*>::Iterator i = vegReplicators_.Begin(); i != vegReplicators_.End(); ++i) {
