@@ -57,6 +57,7 @@ namespace Atomic
 		static void RegisterObject(Context* context);
 
 		void DrawGrass(IntVector2 sector, IntVector2 cellsize);
+		void DrawTrees(IntVector2 sector, IntVector2 cellsize);
 
 	protected:
 
@@ -73,10 +74,13 @@ namespace Atomic
 		virtual void OnSetEnabled();
 		//Grass stuff
 		HashMap<IntVector2, GeomReplicator*> vegReplicators_;
+		HashMap<IntVector2, GeomReplicator*> treeReplicators_;
 		SharedPtr<Terrain> terrain_;
 		SharedPtr<Node> node_;
 		IntVector2 lastSector_;
 		bool sectorSet_;
+
+		Vector2 CustomWorldToNormalized(Image *height, Terrain *terrain, Vector3 world);
 	};
 
 }

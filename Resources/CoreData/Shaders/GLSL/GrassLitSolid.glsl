@@ -240,6 +240,6 @@ void PS()
             finalColor += cMatEmissiveColor;
         #endif
 
-        gl_FragColor = vec4(GetFog(finalColor, fogFactor), 0.1);
+        gl_FragColor = vec4(GetFog(finalColor, fogFactor), diffColor.a);
     #endif
 }
