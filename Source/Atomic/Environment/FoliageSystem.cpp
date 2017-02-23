@@ -157,26 +157,26 @@ namespace Atomic
 			IntVector2 campos2d = IntVector2(campos.x_, campos.z_);
 
 
-			IntVector2 sector = IntVector2(  floor(campos2d.x_ / cellsize.x_), floor(campos2d.y_ / cellsize.y_));
+			IntVector2 sector = IntVector2(  floor(campos2d.x_ / cellsize.x_) -1, floor(campos2d.y_ / cellsize.y_));
 		
 
-			//ATOMIC_LOGDEBUG(sector.ToString());
+			ATOMIC_LOGDEBUG(sector.ToString());
 
 			
-			if (sectorSet_ && lastSector_ != sector)
+			if (lastSector_ != sector)
 			{
 
 				PODVector<IntVector2> activeset;
 
 				activeset.Push(sector);
-				//activeset.Push(sector + IntVector2(1, 1));
-				//activeset.Push(sector + IntVector2(1, -1));
-				//activeset.Push(sector + IntVector2(-1, 1));
-				//activeset.Push(sector + IntVector2(-1, -1));
-				//activeset.Push(sector + IntVector2(1, 0));
-				//activeset.Push(sector + IntVector2(0, 1));
-				//activeset.Push(sector + IntVector2(-1, 0));
-				//activeset.Push(sector + IntVector2(0, -1));
+				activeset.Push(sector + IntVector2(1, 1));
+				activeset.Push(sector + IntVector2(1, -1));
+				activeset.Push(sector + IntVector2(-1, 1));
+				activeset.Push(sector + IntVector2(-1, -1));
+				activeset.Push(sector + IntVector2(1, 0));
+				activeset.Push(sector + IntVector2(0, 1));
+				activeset.Push(sector + IntVector2(-1, 0));
+				activeset.Push(sector + IntVector2(0, -1));
 
 				//grass remove unused
 				for (HashMap<IntVector2, GeomReplicator*>::Iterator i = vegReplicators_.Begin(); i != vegReplicators_.End(); ++i) {
@@ -193,7 +193,7 @@ namespace Atomic
 				//	}
 				//}
 
-				sectorSet_ = true;
+				//sectorSet_ = true;
 				lastSector_ = sector;
 
 				//grass create new/missing
