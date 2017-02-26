@@ -601,6 +601,7 @@ namespace AtomicEditor
 		int ix = (normalized.x_*(float)(blend->GetWidth() - 1));
 		int iy = (normalized.y_*(float)(blend->GetHeight() - 1));
 		iy = blend->GetHeight() - iy;
+
 		float rad = radius*ratio;
 		int sz = rad + 1;
 

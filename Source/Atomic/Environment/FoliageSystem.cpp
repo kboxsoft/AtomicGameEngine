@@ -35,6 +35,8 @@
 #include "../Graphics/Renderer.h"
 #include <Atomic/Math/Vector3.h>
 #include <Atomic/IO/Log.h>
+#include <Atomic/Graphics/BillboardSet.h>
+#include <Atomic/IO/FileSystem.h>
 #if defined(_MSC_VER)
 #include "stdint.h"
 #endif
@@ -52,6 +54,11 @@ namespace Atomic
 	{
 		initialized_ = false;
 		context_ = context;
+		billboardImage_ = nullptr;
+
+		ResourceCache* cache = GetSubsystem<ResourceCache>();
+		Model* treemodel = cache->GetResource<Model>("Models/Tree_Mesh.mdl");
+		CreateBillboard(treemodel);
 	}
 
 	FoliageSystem::~FoliageSystem()
@@ -87,8 +94,8 @@ namespace Atomic
 
 	void FoliageSystem::Initialize()
 	{
-		initialized_ = true;
 		SubscribeToEvent(node_->GetScene(), E_COMPONENTREMOVED, ATOMIC_HANDLER(FoliageSystem, HandleComponentRemoved));
+		initialized_ = true;
 	}
 
 	void FoliageSystem::OnSetEnabled()
@@ -147,7 +154,7 @@ namespace Atomic
 			return;
 
 		IntVector2 terrainsize = (terrain_->GetNumPatches() * terrain_->GetPatchSize());
-		IntVector2 cellsize = terrainsize / 32;
+		IntVector2 cellsize = terrainsize / 4;
 
 		Camera *cam =  viewport->GetCamera();
 		if (cam) {
@@ -165,19 +172,19 @@ namespace Atomic
 			
 			if (lastSector_ != sector)
 			{
-				if (sector.x_ > lastSector_.x_) {
-					ATOMIC_LOGDEBUG("Moved +X");
-
-				}
-				if (sector.x_ < lastSector_.x_) {
-					ATOMIC_LOGDEBUG("Moved -X");
-				}
-				if (sector.y_ > lastSector_.y_) {
-					ATOMIC_LOGDEBUG("Moved +Z");
-				}
-				if (sector.y_ < lastSector_.y_) {
-					ATOMIC_LOGDEBUG("Moved -Z");
-			    }
+				lastSector_ = sector;
+				//if (sector.x_ > lastSector_.x_) {
+				//	ATOMIC_LOGDEBUG("Moved +X");
+				//}
+				//if (sector.x_ < lastSector_.x_) {
+				//	ATOMIC_LOGDEBUG("Moved -X");
+				//}
+				//if (sector.y_ > lastSector_.y_) {
+				//	ATOMIC_LOGDEBUG("Moved +Z");
+				//}
+				//if (sector.y_ < lastSector_.y_) {
+				//	ATOMIC_LOGDEBUG("Moved -Z");
+			 //   }
 
 
 
@@ -202,15 +209,15 @@ namespace Atomic
 					}
 				}
 				////trees remove unused
-				//for (HashMap<IntVector2, GeomReplicator*>::Iterator i = treeReplicators_.Begin(); i != treeReplicators_.End(); ++i) {
-				//	if (!activeset.Contains(i->first_)) {
-				//		i->second_->Remove();
-				//		treeReplicators_.Erase(i->first_);
-				//	}
-				//}
+				for (HashMap<IntVector2, BillboardSet*>::Iterator i = treeBillboards_.Begin(); i != treeBillboards_.End(); ++i) {
+					if (!activeset.Contains(i->first_)) {
+						i->second_->Remove();
+						treeBillboards_.Erase(i->first_);
+					}
+				}
 
 				//sectorSet_ = true;
-				lastSector_ = sector;
+				
 
 				//grass create new/missing
 				for (PODVector<IntVector2> ::Iterator i = activeset.Begin(); i != activeset.End(); ++i) {
@@ -220,11 +227,11 @@ namespace Atomic
 				}
 
 				////trees create new/missing
-				//for (PODVector<IntVector2> ::Iterator i = activeset.Begin(); i != activeset.End(); ++i) {
-				//	if (!treeReplicators_.Contains(i->Data())) {
-				//		DrawTrees(i->Data(), cellsize);
-				//	}
-				//}
+				for (PODVector<IntVector2> ::Iterator i = activeset.Begin(); i != activeset.End(); ++i) {
+					if (!treeBillboards_.Contains(i->Data())) {
+						DrawTrees(i->Data(), cellsize);
+					}
+				}
 				
 				//DrawGrass(sector, cellsize);
 				//DrawGrass(sector + IntVector2(1,1), cellsize);
@@ -240,7 +247,7 @@ namespace Atomic
 	}
 
 	void FoliageSystem::DrawTrees(IntVector2 sector, IntVector2 cellsize) {
-		const unsigned NUM_OBJECTS = 10;
+		const unsigned NUM_OBJECTS = 100;
 
 		if (!terrain_) {
 			ATOMIC_LOGERROR("Foliage system couldn't find terrain");
@@ -257,48 +264,137 @@ namespace Atomic
 			PRotScale qp;
 
 
-			qp.pos = (node_->GetRotation().Inverse() * Vector3(Random(cellsize.x_*5), 0.0f, Random(cellsize.y_*5))) + (node_->GetRotation().Inverse() * position);
+			qp.pos = (node_->GetRotation().Inverse() * Vector3(Random(cellsize.x_), 0.0f, Random(cellsize.y_))) + (node_->GetRotation().Inverse() * position);
 			qp.rot = Quaternion(0.0f, Random(360.0f), 0.0f);
-			qp.pos.y_ = terrain_->GetHeight(node_->GetRotation() * qp.pos) - 2.2f;
+			qp.pos.y_ = terrain_->GetHeight(node_->GetRotation() * qp.pos) + 5;
 			qp.scale = 7.5f + Random(11.0f);
 			qpList_.Push(qp);
 		}
-
-		Model *pModel = cache->GetResource<Model>("Models/Veg/vegbrush.mdl");
-		SharedPtr<Model> cloneModel = pModel->Clone();
-
+		const unsigned NUM_BILLBOARDNODES = 10;
 
 		Node *treenode = node_->CreateChild();
-		GeomReplicator *trees = treenode->CreateComponent<GeomReplicator>();
-		trees->SetModel(cloneModel);
+		treenode->SetPosition(Vector3(0.0f, 0.0f, 0.0f));
+		BillboardSet* trees = treenode->CreateComponent<BillboardSet>();
+		trees->SetNumBillboards(NUM_OBJECTS);
 		trees->SetMaterial(cache->GetResource<Material>("Models/Veg/trees-alphamask.xml"));
+		Texture2D* texture = new Texture2D(context_);
+		texture->SetFilterMode(TextureFilterMode::FILTER_NEAREST);
+		texture->SetNumLevels(1);
+		texture->SetSize(512, 512, Graphics::GetRGBAFormat(), TEXTURE_STATIC);
+		// Give it the image to get the data from.
+		texture->SetData(billboardImage_, true);
+		// Or give it the image data directly (this is faster):
+		//texture->SetData(0, 0, 0, 512, 512, billboardImage_->GetData());
+		trees->GetMaterial()->SetTexture(TextureUnit::TU_DIFFUSE, texture);
 
-		Vector3 lightDir(0.6f, -1.0f, 0.8f);
+		trees->SetSorted(true);
+		for (unsigned int j = 0; j < qpList_.Size(); ++j)
+		{
+			Billboard* bb = trees->GetBillboard(j);
+			bb->position_ = qpList_.At(j).pos;
+			bb->size_ = Vector2(qpList_.At(j).scale, qpList_.At(j).scale);
+			bb->enabled_ = true;
+		}
+		trees->Commit();
+		treeBillboards_.InsertNew(sector, trees);
 
-		lightDir = -1.0f * lightDir.Normalized();
-		trees->Replicate(qpList_, lightDir);
 
-		// specify which verts in the geom to move
-		// - for the vegbrush model, the top two vertex indeces are 2 and 3
-		PODVector<unsigned> topVerts;
-		topVerts.Push(2);
-		topVerts.Push(3);
+		//Model *pModel = cache->GetResource<Model>("Models/Veg/vegbrush.mdl");
+		//SharedPtr<Model> cloneModel = pModel->Clone();
 
-		// specify the number of geoms to update at a time
-		unsigned batchCount = 10000;
 
-		// wind velocity (breeze velocity shown)
-		Vector3 windVel(0.1f, -0.1f, 0.1f);
+		//Node *treenode = node_->CreateChild();
+		//GeomReplicator *trees = treenode->CreateComponent<GeomReplicator>();
+		//trees->SetModel(cloneModel);
+		//trees->SetMaterial(cache->GetResource<Material>("Models/Veg/trees-alphamask.xml"));
 
-		// specify the cycle timer
-		float cycleTimer = 1.4f;
+		//Vector3 lightDir(0.6f, -1.0f, 0.8f);
 
-		trees->ConfigWindVelocity(topVerts, batchCount, windVel, cycleTimer);
-		trees->WindAnimationEnabled(true);
+		//lightDir = -1.0f * lightDir.Normalized();
+		//trees->Replicate(qpList_, lightDir);
 
-		treeReplicators_.InsertNew(sector, trees);
+		//// specify which verts in the geom to move
+		//// - for the vegbrush model, the top two vertex indeces are 2 and 3
+		//PODVector<unsigned> topVerts;
+		//topVerts.Push(2);
+		//topVerts.Push(3);
+
+		//// specify the number of geoms to update at a time
+		//unsigned batchCount = 10000;
+
+		//// wind velocity (breeze velocity shown)
+		//Vector3 windVel(0.1f, -0.1f, 0.1f);
+
+		//// specify the cycle timer
+		//float cycleTimer = 1.4f;
+
+		//trees->ConfigWindVelocity(topVerts, batchCount, windVel, cycleTimer);
+		//trees->WindAnimationEnabled(true);
+
+		//treeReplicators_.InsertNew(sector, trees);
 
 	}
+
+	//void FoliageSystem::DrawTrees(IntVector2 sector, IntVector2 cellsize) {
+	//	const unsigned NUM_OBJECTS = 10;
+
+	//	if (!terrain_) {
+	//		ATOMIC_LOGERROR("Foliage system couldn't find terrain");
+	//		return;
+	//	}
+	//	Vector3 position = Vector3((sector.x_ * cellsize.x_), 0, (sector.y_ * cellsize.y_));
+	//	ATOMIC_LOGDEBUG("New trees " + position.ToString() + " Sector: " + sector.ToString());
+	//	ResourceCache* cache = GetSubsystem<ResourceCache>();
+
+	//	PODVector<PRotScale> qpList_;
+	//		Vector3 rotatedpos = (rot.Inverse() * qp.pos);  //  (rot.Inverse() * qp.pos) + terrainpos;
+	//	for (unsigned i = 0; i < NUM_OBJECTS; ++i)
+	//	{
+	//		PRotScale qp;
+
+
+	//		qp.pos = (node_->GetRotation().Inverse() * Vector3(Random(cellsize.x_*5), 0.0f, Random(cellsize.y_*5))) + (node_->GetRotation().Inverse() * position);
+	//		qp.rot = Quaternion(0.0f, Random(360.0f), 0.0f);
+	//		qp.pos.y_ = terrain_->GetHeight(node_->GetRotation() * qp.pos) - 2.2f;
+	//		qp.scale = 7.5f + Random(11.0f);
+	//		qpList_.Push(qp);
+	//	}
+
+	//	Model *pModel = cache->GetResource<Model>("Models/Veg/vegbrush.mdl");
+	//	SharedPtr<Model> cloneModel = pModel->Clone();
+
+
+	//	Node *treenode = node_->CreateChild();
+	//	GeomReplicator *trees = treenode->CreateComponent<GeomReplicator>();
+	//	trees->SetModel(cloneModel);
+	//	trees->SetMaterial(cache->GetResource<Material>("Models/Veg/trees-alphamask.xml"));
+
+	//	Vector3 lightDir(0.6f, -1.0f, 0.8f);
+
+	//	lightDir = -1.0f * lightDir.Normalized();
+	//	trees->Replicate(qpList_, lightDir);
+
+	//	 specify which verts in the geom to move
+	//	 - for the vegbrush model, the top two vertex indeces are 2 and 3
+	//	PODVector<unsigned> topVerts;
+	//	topVerts.Push(2);
+	//	topVerts.Push(3);
+
+	//	 specify the number of geoms to update at a time
+	//	unsigned batchCount = 10000;
+
+	//	 wind velocity (breeze velocity shown)
+	//	Vector3 windVel(0.1f, -0.1f, 0.1f);
+
+	//	 specify the cycle timer
+	//	float cycleTimer = 1.4f;
+
+	//	trees->ConfigWindVelocity(topVerts, batchCount, windVel, cycleTimer);
+	//	trees->WindAnimationEnabled(true);
+
+	//	treeReplicators_.InsertNew(sector, trees);
+
+	//}
 
 	Vector2 FoliageSystem::CustomWorldToNormalized(Image *height, Terrain *terrain, Vector3 world)
 	{
@@ -313,14 +409,14 @@ namespace Atomic
 
 
 	void FoliageSystem::DrawGrass(IntVector2 sector, IntVector2 cellsize) {
-		const unsigned NUM_OBJECTS = 1000;
+		const unsigned NUM_OBJECTS = 5000;
 
 		if (!terrain_){
 			ATOMIC_LOGERROR("Foliage system couldn't find terrain");
 			return;
 		}
 		Vector3 position = Vector3((sector.x_ * cellsize.x_), 0, (sector.y_ * cellsize.y_));
-		ATOMIC_LOGDEBUG("New grass " + position.ToString() + " Sector: " + sector.ToString());
+		//ATOMIC_LOGDEBUG("New grass " + position.ToString() + " Sector: " + sector.ToString());
 		ResourceCache* cache = GetSubsystem<ResourceCache>();
 
 		Texture2D* splattex = (Texture2D*)terrain_->GetMaterial()->GetTexture(TU_DIFFUSE);
@@ -346,14 +442,14 @@ namespace Atomic
 
 			//Vector3 rotatedpos = rot.Inverse() * qp.pos;
 			Vector2 normalized = CustomWorldToNormalized(splatmap, terrain_, qp.pos);
-			int ix = (normalized.x_*(float)(splatmap->GetWidth()));
-			int iy = (normalized.y_*(float)(splatmap->GetHeight()));
+			int ix = (normalized.x_*(float)(splatmap->GetWidth() - 1));
+			int iy = (normalized.y_*(float)(splatmap->GetHeight() - 1));
 			iy = splatmap->GetHeight() - iy;
 
 
-			Color red = splatmap->GetPixel(ix, iy);
+			Color pixel = splatmap->GetPixel(ix, iy);
 
-			if (splatmap && red.b_ > 0.5)
+			if (splatmap && pixel.b_ > pixel.r_ & pixel.b_ > pixel.g_)
 			{
 				qp.rot = Quaternion(0.0f, Random(360.0f), 0.0f);
 				qp.pos.y_ = terrain_->GetHeight(node_->GetRotation() * qp.pos) - 0.2f;
@@ -364,7 +460,7 @@ namespace Atomic
 
 		if (qpList_.Size() < 1)
 		{
-			ATOMIC_LOGDEBUG("Vegetation list is empty (maybe the splatmap is empty?");
+			//ATOMIC_LOGDEBUG("Vegetation list is empty (maybe the splatmap is empty?");
 			return;
 		}
 
@@ -404,4 +500,126 @@ namespace Atomic
 
 	}
 
+
+
+	void FoliageSystem::CreateBillboard(Model* model) {
+		// Create viewport scene 
+		//static bool updateMe = true;
+		////Already done
+		//if (billboardImage_)
+		//	return;
+
+		Scene* m_p3DViewportScene = new Scene(context_);
+		m_p3DViewportScene->CreateComponent<Octree>();
+
+		Node* _pZoneAmbientNode = m_p3DViewportScene->CreateChild("Zone");
+
+		if (_pZoneAmbientNode != nullptr)
+		{
+
+			Zone* _pZoneAmbient = _pZoneAmbientNode->CreateComponent<Zone>();
+
+			if (_pZoneAmbient != nullptr)
+			{
+				_pZoneAmbient->SetBoundingBox(BoundingBox(-2048.0f, 2048.0f));
+				_pZoneAmbient->SetAmbientColor(Color(0.5f, 0.5f, 0.5f));
+				//_pZoneAmbient->SetFogColor(Color::CYAN);
+				//_pZoneAmbient->SetFogColor(Color(1.0f, 0.0f, 0.0f));
+				//_pZoneAmbient->SetFogStart(0.0f);
+				//_pZoneAmbient->SetFogEnd(512.0f);
+			}
+
+		}
+
+		// Create camera viewport
+		Node* m_p3DViewportCameraNode = m_p3DViewportScene->CreateChild();
+
+		if (m_p3DViewportCameraNode != nullptr)
+		{
+
+			Camera* _pCamera = m_p3DViewportCameraNode->CreateComponent<Camera>();
+
+			if (_pCamera != nullptr)
+			{
+				_pCamera->SetFarClip(512.0f);
+				//_pCamera->SetOrthographic(true);
+			}
+
+		}
+
+		// Create rendertarget
+		Texture2D* m_p3DViewportRenderTexture = new Texture2D(context_);
+		m_p3DViewportRenderTexture->SetSize(512, 512, Graphics::GetRGBAFormat(), TEXTURE_RENDERTARGET);
+		m_p3DViewportRenderTexture->SetFilterMode(FILTER_TRILINEAR);
+
+		RenderSurface* _pRenderSurface = m_p3DViewportRenderTexture->GetRenderSurface();
+
+		if (_pRenderSurface != nullptr)
+		{
+		    Viewport* _pViewport = (new Viewport(context_, m_p3DViewportScene, m_p3DViewportCameraNode->GetComponent<Camera>()));
+			_pRenderSurface->SetViewport(0, _pViewport);
+			_pRenderSurface->SetUpdateMode(RenderSurfaceUpdateMode::SURFACE_UPDATEALWAYS);
+		}
+
+
+		Node* m_pModelNode = m_p3DViewportScene->CreateChild();
+		m_pModelNode->SetPosition(Vector3(0.0f, -1.0f, 5.0f));
+		m_pModelNode->SetRotation(Quaternion(0.0f, 0.0f, 0.0f));
+		m_pModelNode->SetScale(Vector3(0.1, 0.1, 0.1));
+
+		StaticModel* _pStaticModel = m_pModelNode->CreateComponent<StaticModel>();
+	
+		_pStaticModel->SetModel(model);
+		_pStaticModel->SetCastShadows(false);
+		
+		//_pStaticModel->ApplyMaterialList();
+
+		ResourceCache* cache = GetSubsystem<ResourceCache>();
+		Material* treemat = cache->GetResource<Material>("Materials/Optimized Bark Material.material");
+		_pStaticModel->SetMaterial(treemat);
+		// Render the screen
+		
+		//if (updateMe)
+		//{
+		//	updateMe = false;
+			GetSubsystem<Renderer>()->Update(1.0f);
+		//}
+		
+
+		Renderer *renderer = GetSubsystem<Renderer>();
+		renderer->Render();
+
+		// Image saving
+		billboardImage_ = new Image(context_);
+		
+
+		unsigned char* _ImageData = new unsigned char[m_p3DViewportRenderTexture->GetDataSize(512, 512)];
+		m_p3DViewportRenderTexture->GetData(0, _ImageData);
+
+		int channels = m_p3DViewportRenderTexture->GetComponents();
+		Color transparentcolor = Color::BLACK; //Black is transparent
+
+		for (int i = 0; i<512*512; i++) {
+			//If pixel is the color we want to use as transparent in the imposter, set its alpha to 0
+			if (Color(_ImageData[4 * i], _ImageData[4 * i + 1], _ImageData[4 * i + 2]) == transparentcolor) {
+				_ImageData[4 * i + 3] = 0; //ALPHA
+			}
+			else {
+				_ImageData[4 * i + 3] = 255;
+			}
+		}
+
+		billboardImage_->SetSize(512, 512, channels);
+		billboardImage_->SetData(_ImageData);
+
+		//return billboardImage_;
+		//ResourceCache* cache = GetSubsystem<ResourceCache>();
+
+		//String name = node_->GetScene()->GetFileName();
+		//String dir = GetParentPath(name);
+		billboardImage_->SavePNG("test.png");
+		//ATOMIC_LOGDEBUG("Wrote " + name + "test.png");
+
+		//delete[] _ImageData;
+	}
 }
