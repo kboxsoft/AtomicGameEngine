@@ -55,7 +55,7 @@ namespace Atomic
 		initialized_ = false;
 		context_ = context;
 		billboardImage_ = nullptr;
-
+		billboardSize_ = 2048;
 		ResourceCache* cache = GetSubsystem<ResourceCache>();
 		Model* treemodel = cache->GetResource<Model>("Models/Tree_Mesh.mdl");
 		CreateBillboard(treemodel);
@@ -280,7 +280,7 @@ namespace Atomic
 		Texture2D* texture = new Texture2D(context_);
 		texture->SetFilterMode(TextureFilterMode::FILTER_NEAREST);
 		texture->SetNumLevels(1);
-		texture->SetSize(512, 512, Graphics::GetRGBAFormat(), TEXTURE_STATIC);
+		texture->SetSize(billboardSize_, billboardSize_, Graphics::GetRGBAFormat(), TEXTURE_STATIC);
 		// Give it the image to get the data from.
 		texture->SetData(billboardImage_, true);
 		// Or give it the image data directly (this is faster):
@@ -295,6 +295,8 @@ namespace Atomic
 			bb->size_ = Vector2(qpList_.At(j).scale, qpList_.At(j).scale);
 			bb->enabled_ = true;
 		}
+		trees->SetFaceCameraMode(FaceCameraMode::FC_DIRECTION);
+		trees->SetCastShadows(true);
 		trees->Commit();
 		treeBillboards_.InsertNew(sector, trees);
 
@@ -549,7 +551,7 @@ namespace Atomic
 
 		// Create rendertarget
 		Texture2D* m_p3DViewportRenderTexture = new Texture2D(context_);
-		m_p3DViewportRenderTexture->SetSize(512, 512, Graphics::GetRGBAFormat(), TEXTURE_RENDERTARGET);
+		m_p3DViewportRenderTexture->SetSize(billboardSize_, billboardSize_, Graphics::GetRGBAFormat(), TEXTURE_RENDERTARGET);
 		m_p3DViewportRenderTexture->SetFilterMode(FILTER_TRILINEAR);
 
 		RenderSurface* _pRenderSurface = m_p3DViewportRenderTexture->GetRenderSurface();
@@ -593,13 +595,13 @@ namespace Atomic
 		billboardImage_ = new Image(context_);
 		
 
-		unsigned char* _ImageData = new unsigned char[m_p3DViewportRenderTexture->GetDataSize(512, 512)];
+		unsigned char* _ImageData = new unsigned char[m_p3DViewportRenderTexture->GetDataSize(billboardSize_, billboardSize_)];
 		m_p3DViewportRenderTexture->GetData(0, _ImageData);
 
 		int channels = m_p3DViewportRenderTexture->GetComponents();
 		Color transparentcolor = Color::BLACK; //Black is transparent
 
-		for (int i = 0; i<512*512; i++) {
+		for (int i = 0; i<billboardSize_ *billboardSize_; i++) {
 			//If pixel is the color we want to use as transparent in the imposter, set its alpha to 0
 			if (Color(_ImageData[4 * i], _ImageData[4 * i + 1], _ImageData[4 * i + 2]) == transparentcolor) {
 				_ImageData[4 * i + 3] = 0; //ALPHA
@@ -609,7 +611,7 @@ namespace Atomic
 			}
 		}
 
-		billboardImage_->SetSize(512, 512, channels);
+		billboardImage_->SetSize(billboardSize_, billboardSize_, channels);
 		billboardImage_->SetData(_ImageData);
 
 		//return billboardImage_;

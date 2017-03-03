@@ -85,6 +85,7 @@ namespace Atomic
 		Vector2 CustomWorldToNormalized(Image *height, Terrain *terrain, Vector3 world);
 		void FoliageSystem::CreateBillboard(Model *model);
 		Image* billboardImage_;
+		int billboardSize_;
 	};
 
 }
