@@ -616,7 +616,7 @@ namespace Atomic
 
 		//m_pModelNode->SetPosition(-entityCenter + Vector3(10, 0, 10));
 		//m_pModelNode->SetPosition(-entityCenter + Vector3(0, 0, 0));
-		m_pModelNode->SetPosition(Vector3(0, 0, 0));
+		m_pModelNode->SetPosition(-entityCenter + Vector3(0, 0, 0));
 		m_pModelNode->SetRotation(Quaternion(0.0f, 0.0f, 0.0f));
 		//m_pModelNode->SetScale(Vector3(0.5, 0.5, 0.5));
 
