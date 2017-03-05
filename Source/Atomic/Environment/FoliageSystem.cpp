@@ -269,8 +269,8 @@ namespace Atomic
 
 			qp.pos = (node_->GetRotation().Inverse() * Vector3(Random(cellsize.x_), 0.0f, Random(cellsize.y_))) + (node_->GetRotation().Inverse() * position);
 			qp.rot = Quaternion(0.0f, Random(360.0f), 0.0f);
-			qp.pos.y_ = terrain_->GetHeight(node_->GetRotation() * qp.pos) + 5;
-			qp.scale = 7.5f + Random(11.0f);
+			qp.scale = 2.5f + Random(4.0f);
+			qp.pos.y_ = terrain_->GetHeight(node_->GetRotation() * qp.pos) + qp.scale;
 			qpList_.Push(qp);
 		}
 		const unsigned NUM_BILLBOARDNODES = 10;
@@ -531,7 +531,8 @@ namespace Atomic
 		////Already done
 		//if (billboardImage_)
 		//	return;
-
+		ResourceCache* cache = GetSubsystem<ResourceCache>();
+		Renderer *renderer = GetSubsystem<Renderer>();
 		Scene* m_p3DViewportScene = new Scene(context_);
 		m_p3DViewportScene->CreateComponent<Octree>();
 
@@ -575,12 +576,13 @@ namespace Atomic
 
 		RenderSurface* _pRenderSurface = m_p3DViewportRenderTexture->GetRenderSurface();
 
-		if (_pRenderSurface != nullptr)
-		{
-		    Viewport* _pViewport = (new Viewport(context_, m_p3DViewportScene, m_p3DViewportCameraNode->GetComponent<Camera>()));
-			_pRenderSurface->SetViewport(0, _pViewport);
-			_pRenderSurface->SetUpdateMode(RenderSurfaceUpdateMode::SURFACE_UPDATEALWAYS);
-		}
+		if (_pRenderSurface == nullptr)
+			return;
+	
+		Viewport* _pViewport = (new Viewport(context_, m_p3DViewportScene, m_p3DViewportCameraNode->GetComponent<Camera>()));
+	    _pRenderSurface->SetViewport(0, _pViewport);
+		_pRenderSurface->SetUpdateMode(RenderSurfaceUpdateMode::SURFACE_MANUALUPDATE);
+	
 
 
 		Node* m_pModelNode = m_p3DViewportScene->CreateChild();
@@ -589,6 +591,9 @@ namespace Atomic
 	
 		_pStaticModel->SetModel(model);
 		_pStaticModel->SetCastShadows(false);
+		//_pStaticModel->ApplyMaterialList();
+		Material* treemat = cache->GetResource<Material>("Materials/Optimized Bark Material.material");
+		_pStaticModel->SetMaterial(treemat);
 
 		BoundingBox boundingbox = _pStaticModel->GetBoundingBox();
 		Vector3 entityCenter = boundingbox.Center();
@@ -598,7 +603,7 @@ namespace Atomic
 
 
 		//Set up camera FOV
-		float objDist = entityRadius * 10;
+		float objDist = entityRadius;
 		float nearDist = objDist - (entityRadius + 1);
 		float farDist = objDist + (entityRadius + 1);
 
@@ -614,15 +619,8 @@ namespace Atomic
 		}
 
 
-		//m_pModelNode->SetPosition(-entityCenter + Vector3(10, 0, 10));
-		//m_pModelNode->SetPosition(-entityCenter + Vector3(0, 0, 0));
 		m_pModelNode->SetPosition(-entityCenter + Vector3(0, 0, 0));
 		m_pModelNode->SetRotation(Quaternion(0.0f, 0.0f, 0.0f));
-		//m_pModelNode->SetScale(Vector3(0.5, 0.5, 0.5));
-
-		//m_pModelNode->SetPosition(Vector3(0.0f, -1.0f, 5.0f));
-		//m_pModelNode->SetRotation(Quaternion(0.0f, 0.0f, 0.0f));
-		//m_pModelNode->SetScale(Vector3(0.1, 0.1, 0.1));
 
 
 		if (true) {
@@ -649,38 +647,18 @@ namespace Atomic
 					//Render the impostor
 					//renderViewport->setDimensions((float)(i)* xDivFactor, (float)(o)* yDivFactor, xDivFactor, yDivFactor);
 					//renderTarget->update();
+					_pRenderSurface->QueueUpdate();
+					renderer->Update(1.0f);
+					renderer->Render();
+					
 				}
 			}
 		}
 
-
-
-		//m_p3DViewportCameraNode->SetPosition(Vector3(0, 0, 0));
-		//m_p3DViewportCameraNode->SetRotation(Quaternion(0.0f));
-		//m_p3DViewportCameraNode->Translate(Vector3(0, 0, -objDist), TS_LOCAL);
-
 		
-		//_pStaticModel->ApplyMaterialList();
-
-		ResourceCache* cache = GetSubsystem<ResourceCache>();
-		Material* treemat = cache->GetResource<Material>("Materials/Optimized Bark Material.material");
-		_pStaticModel->SetMaterial(treemat);
-		// Render the screen
-		
-		//if (updateMe)
-		//{
-		//	updateMe = false;
-			GetSubsystem<Renderer>()->Update(1.0f);
-		//}
-		
-
-		Renderer *renderer = GetSubsystem<Renderer>();
-		renderer->Render();
-
 		// Image saving
 		billboardImage_ = new Image(context_);
 		
-
 		unsigned char* _ImageData = new unsigned char[m_p3DViewportRenderTexture->GetDataSize(billboardSize_, billboardSize_)];
 		m_p3DViewportRenderTexture->GetData(0, _ImageData);
 
@@ -701,7 +679,6 @@ namespace Atomic
 		billboardImage_->SetData(_ImageData);
 
 		//return billboardImage_;
-		//ResourceCache* cache = GetSubsystem<ResourceCache>();
 
 		//String name = node_->GetScene()->GetFileName();
 		//String dir = GetParentPath(name);
@@ -716,6 +693,6 @@ namespace Atomic
 		billboardImage_->SavePNG("test.png");
 		//ATOMIC_LOGDEBUG("Wrote " + name + "test.png");
 
-		//delete[] _ImageData;
+	    delete[] _ImageData;
 	}
 }
