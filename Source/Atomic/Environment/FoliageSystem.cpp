@@ -37,6 +37,9 @@
 #include <Atomic/IO/Log.h>
 #include <Atomic/Graphics/BillboardSet.h>
 #include <Atomic/IO/FileSystem.h>
+#include <ToolCore/Project/Project.h>
+#include <ToolCore/ToolSystem.h>
+
 #if defined(_MSC_VER)
 #include "stdint.h"
 #endif
@@ -502,6 +505,24 @@ namespace Atomic
 
 	}
 
+	Vector3 FoliageSystem::makeCeil(Vector3& first, Vector3& second)
+	{
+		return Vector3(Max(first.x_, second.x_), Max(first.y_, second.y_), Max(first.z_, second.z_));
+	}
+
+
+	float FoliageSystem::boundingRadiusFromAABB(BoundingBox& aabb)
+	{
+	    Vector3& max = aabb.max_;
+	    Vector3& min = aabb.min_;
+
+		Vector3 magnitude = max;
+		magnitude = makeCeil(magnitude, -max);
+		magnitude = makeCeil(magnitude, min);
+		magnitude = makeCeil(magnitude, -min);
+
+		return magnitude.Length();
+	}
 
 
 	void FoliageSystem::CreateBillboard(Model* model) {
@@ -524,6 +545,13 @@ namespace Atomic
 			if (_pZoneAmbient != nullptr)
 			{
 				_pZoneAmbient->SetBoundingBox(BoundingBox(-2048.0f, 2048.0f));
+				Zone* mainzone = nullptr;
+				//if(node_)
+			 //   	Zone* mainzone = node_->GetScene()->GetComponent<Zone>(true);
+				////_pZoneAmbient->SetAmbientColor(Color(0.3f, 0.3f, 0.3f));
+			 //   if(mainzone)
+			 //   	_pZoneAmbient->SetAmbientColor(mainzone->GetAmbientColor());
+
 				_pZoneAmbient->SetAmbientColor(Color(0.5f, 0.5f, 0.5f));
 				//_pZoneAmbient->SetFogColor(Color::CYAN);
 				//_pZoneAmbient->SetFogColor(Color(1.0f, 0.0f, 0.0f));
@@ -535,19 +563,10 @@ namespace Atomic
 
 		// Create camera viewport
 		Node* m_p3DViewportCameraNode = m_p3DViewportScene->CreateChild();
+		Camera* _pCamera;
 
 		if (m_p3DViewportCameraNode != nullptr)
-		{
-
-			Camera* _pCamera = m_p3DViewportCameraNode->CreateComponent<Camera>();
-
-			if (_pCamera != nullptr)
-			{
-				_pCamera->SetFarClip(512.0f);
-				//_pCamera->SetOrthographic(true);
-			}
-
-		}
+			 _pCamera = m_p3DViewportCameraNode->CreateComponent<Camera>();
 
 		// Create rendertarget
 		Texture2D* m_p3DViewportRenderTexture = new Texture2D(context_);
@@ -565,14 +584,81 @@ namespace Atomic
 
 
 		Node* m_pModelNode = m_p3DViewportScene->CreateChild();
-		m_pModelNode->SetPosition(Vector3(0.0f, -1.0f, 5.0f));
-		m_pModelNode->SetRotation(Quaternion(0.0f, 0.0f, 0.0f));
-		m_pModelNode->SetScale(Vector3(0.1, 0.1, 0.1));
 
 		StaticModel* _pStaticModel = m_pModelNode->CreateComponent<StaticModel>();
 	
 		_pStaticModel->SetModel(model);
 		_pStaticModel->SetCastShadows(false);
+
+		BoundingBox boundingbox = _pStaticModel->GetBoundingBox();
+		Vector3 entityCenter = boundingbox.Center();
+		float entityRadius = boundingRadiusFromAABB(boundingbox);
+		float entityDiameter = 2.0f * entityRadius;
+
+
+
+		//Set up camera FOV
+		float objDist = entityRadius * 10;
+		float nearDist = objDist - (entityRadius + 1);
+		float farDist = objDist + (entityRadius + 1);
+
+		if (_pCamera != nullptr)
+		{
+
+			_pCamera->SetLodBias(1000.0f);
+			_pCamera->SetAspectRatio(1.0f);
+
+			_pCamera->SetFov(Atan(entityDiameter / objDist));
+			_pCamera->SetFarClip(farDist);
+			_pCamera->SetNearClip(nearDist);
+		}
+
+
+		//m_pModelNode->SetPosition(-entityCenter + Vector3(10, 0, 10));
+		//m_pModelNode->SetPosition(-entityCenter + Vector3(0, 0, 0));
+		m_pModelNode->SetPosition(Vector3(0, 0, 0));
+		m_pModelNode->SetRotation(Quaternion(0.0f, 0.0f, 0.0f));
+		//m_pModelNode->SetScale(Vector3(0.5, 0.5, 0.5));
+
+		//m_pModelNode->SetPosition(Vector3(0.0f, -1.0f, 5.0f));
+		//m_pModelNode->SetRotation(Quaternion(0.0f, 0.0f, 0.0f));
+		//m_pModelNode->SetScale(Vector3(0.1, 0.1, 0.1));
+
+
+		if (true) {
+			//If this has not been pre-rendered, do so now
+			const float xDivFactor = 1.0f / IMPOSTOR_YAW_ANGLES;
+			const float yDivFactor = 1.0f / IMPOSTOR_PITCH_ANGLES;
+		//	for (int o = 0; o < IMPOSTOR_PITCH_ANGLES; ++o) { //4 pitch angle renders
+			for (int o = 0; o < 1; ++o) {//just do one for testing
+#ifdef IMPOSTOR_RENDER_ABOVE_ONLY
+				float pitch = Degree((90.0f * o) * yDivFactor); //0, 22.5, 45, 67.5
+#else
+				float pitch = ((180.0f * o) * yDivFactor - 90.0f);
+#endif
+
+				//for (int i = 0; i < IMPOSTOR_YAW_ANGLES; ++i) { //8 yaw angle renders
+				for (int i = 0; i < 1; ++i) { //just do one for testing
+					float yaw = (360.0f * i) * xDivFactor; //0, 45, 90, 135, 180, 225, 270, 315
+					pitch = 0; yaw = 0;
+																	//Position camera
+					m_p3DViewportCameraNode->SetPosition(Vector3(0, 0, 0));
+					m_p3DViewportCameraNode->SetRotation(Quaternion(yaw, Vector3::UP) * Quaternion(-pitch, Vector3::RIGHT));
+					m_p3DViewportCameraNode->Translate(Vector3(0, 0, -objDist), TS_LOCAL);
+
+					//Render the impostor
+					//renderViewport->setDimensions((float)(i)* xDivFactor, (float)(o)* yDivFactor, xDivFactor, yDivFactor);
+					//renderTarget->update();
+				}
+			}
+		}
+
+
+
+		//m_p3DViewportCameraNode->SetPosition(Vector3(0, 0, 0));
+		//m_p3DViewportCameraNode->SetRotation(Quaternion(0.0f));
+		//m_p3DViewportCameraNode->Translate(Vector3(0, 0, -objDist), TS_LOCAL);
+
 		
 		//_pStaticModel->ApplyMaterialList();
 
@@ -619,6 +705,14 @@ namespace Atomic
 
 		//String name = node_->GetScene()->GetFileName();
 		//String dir = GetParentPath(name);
+		
+		//ToolCore::ToolSystem* toolsystem = GetSubsystem<ToolCore::ToolSystem>();
+		//if (toolsystem) {
+		//	ToolCore::Project* project = toolsystem->GetProject();
+		//	String myresources = project->GetProjectPath() + "Resources/";
+
+		//	ATOMIC_LOGDEBUG(myresources);
+		//}
 		billboardImage_->SavePNG("test.png");
 		//ATOMIC_LOGDEBUG("Wrote " + name + "test.png");
 

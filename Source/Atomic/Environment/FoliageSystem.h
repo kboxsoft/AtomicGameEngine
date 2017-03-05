@@ -40,6 +40,12 @@
 #include "../Environment/GeomReplicator.h"
 #include "Atomic\Container\HashMap.h"
 
+//Number of positions to snapshot in the yaw axis
+#define IMPOSTOR_YAW_ANGLES 8
+
+//Number of positions to snapshot in the pitch axis
+#define IMPOSTOR_PITCH_ANGLES 4
+
 namespace Atomic
 {
 
@@ -86,6 +92,8 @@ namespace Atomic
 		void FoliageSystem::CreateBillboard(Model *model);
 		Image* billboardImage_;
 		int billboardSize_;
+		float boundingRadiusFromAABB(BoundingBox& bb);
+		Vector3 makeCeil(Vector3& first, Vector3& second);
 	};
 
 }
