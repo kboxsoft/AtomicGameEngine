@@ -41,7 +41,7 @@
 #include "Atomic\Container\HashMap.h"
 
 //Number of positions to snapshot in the yaw axis
-#define IMPOSTOR_YAW_ANGLES 8
+#define IMPOSTOR_YAW_ANGLES 4
 
 //Number of positions to snapshot in the pitch axis
 #define IMPOSTOR_PITCH_ANGLES 4

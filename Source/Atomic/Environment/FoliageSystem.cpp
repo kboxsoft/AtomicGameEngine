@@ -39,6 +39,7 @@
 #include <Atomic/IO/FileSystem.h>
 #include <ToolCore/Project/Project.h>
 #include <ToolCore/ToolSystem.h>
+#include <Atomic/Graphics/RenderPath.h>
 
 #if defined(_MSC_VER)
 #include "stdint.h"
@@ -580,11 +581,89 @@ namespace Atomic
 			return;
 	
 		Viewport* _pViewport = (new Viewport(context_, m_p3DViewportScene, m_p3DViewportCameraNode->GetComponent<Camera>()));
+		SharedPtr<RenderPath> treepath = _pViewport->GetRenderPath()->Clone();
+
+		RenderTargetInfo target;
+		target.enabled_ = true;
+		target.name_ = "treetarget";
+		target.tag_ = "TreeTarget";
+		target.format_ = Graphics::GetRGBAFormat();
+		target.sizeMode_ = SIZE_VIEWPORTDIVISOR;
+		target.size_ = Vector2(4, 4);
+		target.filtered_ = false;
+		target.persistent_ = true;
+
+		treepath->AddRenderTarget(target);
+
+		//RenderPathCommand clear = RenderPathCommand();
+		//clear.type_ = RenderCommandType::CMD_CLEAR;
+		//clear.useFogColor_ = true;
+		//clear.clearDepth_ = 1.0;
+		//clear.clearStencil_ = 0;
+		//clear.enabled_ = true;
+		//clear.SetNumOutputs(1);
+		//clear.SetOutputName(0, "treetarget");
+
+
+		//RenderPathCommand basepass = RenderPathCommand();
+		//basepass.type_ = RenderCommandType::CMD_SCENEPASS;
+		//basepass.pass_ = "base";
+		//basepass.vertexLights_ = true;
+		//basepass.metadata_ = "base";
+		//clear.enabled_ = true;
+		//clear.SetNumOutputs(1);
+		//clear.SetOutputName(0, "treetarget");
+		//clear.enabled_ = true;
+		//clear.SetNumOutputs(1);
+		//clear.SetOutputName(0, "treetarget");
+
+		//RenderPathCommand forwardlights = RenderPathCommand();
+		//forwardlights.type_ = RenderCommandType::CMD_FORWARDLIGHTS;
+		//forwardlights.pass_ = "light";
+		//clear.enabled_ = true;
+		//clear.SetNumOutputs(1);
+		//clear.SetOutputName(0, "treetarget");
+
+		//RenderPathCommand postopaque = RenderPathCommand();
+		//postopaque.type_ = RenderCommandType::CMD_SCENEPASS;
+		//postopaque.pass_ = "postopaque";
+		//clear.enabled_ = true;
+		//clear.SetNumOutputs(1);
+		//clear.SetOutputName(0, "treetarget");
+
+		//RenderPathCommand alpha = RenderPathCommand();
+		//alpha.type_ = RenderCommandType::CMD_SCENEPASS;
+		//alpha.pass_ = "alpha";
+		//alpha.vertexLights_ = true;
+		//alpha.sortMode_ = RenderCommandSortMode::SORT_BACKTOFRONT;
+		//alpha.metadata_ = "alpha";
+		//clear.enabled_ = true;
+		//clear.SetNumOutputs(1);
+		//clear.SetOutputName(0, "treetarget");
+
+		//RenderPathCommand postalpha = RenderPathCommand();
+		//postalpha.type_ = RenderCommandType::CMD_SCENEPASS;
+		//postalpha.pass_ = "postalpha";
+		//postalpha.sortMode_ = RenderCommandSortMode::SORT_BACKTOFRONT;
+		//clear.enabled_ = true;
+		//clear.SetNumOutputs(1);
+		//clear.SetOutputName(0, "treetarget");
+
+		//treepath->AddCommand(clear);
+		//treepath->RemoveCommand(0);
+		//treepath->AddCommand(basepass);
+		//treepath->AddCommand(forwardlights);
+		//treepath->AddCommand(postopaque);
+		//treepath->AddCommand(alpha);
+		//treepath->AddCommand(postalpha);
+
+
+		_pViewport->SetRenderPath(treepath);
+
 	    _pRenderSurface->SetViewport(0, _pViewport);
 		_pRenderSurface->SetUpdateMode(RenderSurfaceUpdateMode::SURFACE_MANUALUPDATE);
-	
 
-
+		
 		Node* m_pModelNode = m_p3DViewportScene->CreateChild();
 
 		StaticModel* _pStaticModel = m_pModelNode->CreateComponent<StaticModel>();
@@ -616,6 +695,7 @@ namespace Atomic
 			_pCamera->SetFov(Atan(entityDiameter / objDist));
 			_pCamera->SetFarClip(farDist);
 			_pCamera->SetNearClip(nearDist);
+			_pCamera->SetOrthographic(true);
 		}
 
 
@@ -627,33 +707,35 @@ namespace Atomic
 			//If this has not been pre-rendered, do so now
 			const float xDivFactor = 1.0f / IMPOSTOR_YAW_ANGLES;
 			const float yDivFactor = 1.0f / IMPOSTOR_PITCH_ANGLES;
-		//	for (int o = 0; o < IMPOSTOR_PITCH_ANGLES; ++o) { //4 pitch angle renders
-			for (int o = 0; o < 1; ++o) {//just do one for testing
+			for (int o = 0; o < IMPOSTOR_PITCH_ANGLES; ++o) { //4 pitch angle renders
 #ifdef IMPOSTOR_RENDER_ABOVE_ONLY
 				float pitch = Degree((90.0f * o) * yDivFactor); //0, 22.5, 45, 67.5
 #else
 				float pitch = ((180.0f * o) * yDivFactor - 90.0f);
 #endif
 
-				//for (int i = 0; i < IMPOSTOR_YAW_ANGLES; ++i) { //8 yaw angle renders
-				for (int i = 0; i < 1; ++i) { //just do one for testing
+				for (int i = 0; i < IMPOSTOR_YAW_ANGLES; ++i) { //8 yaw angle renders
 					float yaw = (360.0f * i) * xDivFactor; //0, 45, 90, 135, 180, 225, 270, 315
-					pitch = 0; yaw = 0;
 																	//Position camera
 					m_p3DViewportCameraNode->SetPosition(Vector3(0, 0, 0));
 					m_p3DViewportCameraNode->SetRotation(Quaternion(yaw, Vector3::UP) * Quaternion(-pitch, Vector3::RIGHT));
 					m_p3DViewportCameraNode->Translate(Vector3(0, 0, -objDist), TS_LOCAL);
 
 					//Render the impostor
-					//renderViewport->setDimensions((float)(i)* xDivFactor, (float)(o)* yDivFactor, xDivFactor, yDivFactor);
-					//renderTarget->update();
+					int width = _pRenderSurface->GetWidth() / IMPOSTOR_YAW_ANGLES;
+					int height = _pRenderSurface->GetHeight() / IMPOSTOR_PITCH_ANGLES;
+					int left = (float)(i)* width;
+					int top = (float)(o)* height;
+					IntRect region = IntRect(left, top, left + width, top + height);
+					_pViewport->SetRect(region);
+					//renderer->SetViewport(0, _pViewport);
 					_pRenderSurface->QueueUpdate();
 					renderer->Update(1.0f);
 					renderer->Render();
-					
 				}
 			}
 		}
+		
 
 		
 		// Image saving
