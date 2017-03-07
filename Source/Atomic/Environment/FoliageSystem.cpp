@@ -271,7 +271,7 @@ namespace Atomic
 			qp.pos = (node_->GetRotation().Inverse() * Vector3(Random(cellsize.x_), 0.0f, Random(cellsize.y_))) + (node_->GetRotation().Inverse() * position);
 			qp.rot = Quaternion(0.0f, Random(360.0f), 0.0f);
 			qp.scale = 2.5f + Random(4.0f);
-			qp.pos.y_ = terrain_->GetHeight(node_->GetRotation() * qp.pos) + qp.scale;
+			qp.pos.y_ = terrain_->GetHeight(node_->GetRotation() * qp.pos) + 3;
 			qpList_.Push(qp);
 		}
 		const unsigned NUM_TREEBILLBOARDNODES = 10;
