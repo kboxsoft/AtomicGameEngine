@@ -269,7 +269,7 @@ namespace Atomic
 
 
 			qp.pos = (node_->GetRotation().Inverse() * Vector3(Random(cellsize.x_), 0.0f, Random(cellsize.y_))) + (node_->GetRotation().Inverse() * position);
-			qp.rot = Quaternion(0.0f, Random(360.0f), 0.0f);
+			qp.rot = Quaternion(Random(360.0f), Vector3::UP);
 			qp.scale = 2.5f + Random(4.0f);
 			qp.pos.y_ = terrain_->GetHeight(node_->GetRotation() * qp.pos) + 3;
 			qpList_.Push(qp);
@@ -297,6 +297,7 @@ namespace Atomic
 			TreeBillboard* bb = trees->GetTreeBillboard(j);
 			bb->position_ = qpList_.At(j).pos;
 			bb->size_ = Vector2(qpList_.At(j).scale, qpList_.At(j).scale);
+			bb->direction_ = qpList_.At(j).rot * Vector3::UP;
 			bb->enabled_ = true;
 		}
 		trees->SetFaceCameraMode(FaceCameraMode::FC_DIRECTION);

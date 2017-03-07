@@ -6,8 +6,8 @@
 #include "Fog.glsl"
 
 varying vec2 oUv;
+varying vec3 debugColor;
 
-    
 #ifdef NORMALMAP
     varying vec4 vTexCoord;
     varying vec4 vTangent;
@@ -44,10 +44,28 @@ varying vec4 vWorldPos;
     #endif
 #endif
 
+vec3 GetUp (vec3 position, vec3 direction, vec3 camPos)
+{
+    vec3 cameraDir = normalize(position - camPos);
+    vec3 front = normalize(direction);
+    vec3 right = normalize(cross(front, cameraDir));
+    vec3 up = normalize(cross(front, right));
+
+    return up;
+    // return mat3(
+    //     right.x, up.x, front.x,
+    //     right.y, up.y, front.y,
+    //     right.z, up.z, front.z
+    // );
+}
+
+
 void VS()
 {
     mat4 modelMatrix = iModelMatrix;
     vec3 worldPos = GetWorldPos(modelMatrix);
+   // mat3 cameraFaceRot = GetFaceCameraRotation(worldPos, iDirection); 
+    debugColor = GetUp(worldPos, iNormal, cCameraPos); 
     gl_Position = GetClipPos(worldPos);
     vNormal = GetWorldNormal(modelMatrix);
     vWorldPos = vec4(worldPos, GetDepth(gl_Position));
@@ -107,6 +125,14 @@ void VS()
     #endif
 	
 	   oUv = GetTexCoord(iTexCoord);
+
+    //    debugColor = vec3(1.0,0.0,0.0);
+    //    #ifdef BILLBOARD
+    //      debugColor = vec3(0.0,1.0,0.0);
+    //    #endif
+    //    #ifdef DIRBILLBOARD
+    //      debugColor = vec3(0.0,0.0,1.0);
+    //    #endif
 }
 
 void PS()
@@ -132,6 +158,8 @@ void PS()
     #ifdef VERTEXCOLOR
         diffColor *= vColor;
     #endif
+
+    diffColor.rgb = debugColor.rgb;
     
     // Get material specular albedo
     #ifdef SPECMAP
