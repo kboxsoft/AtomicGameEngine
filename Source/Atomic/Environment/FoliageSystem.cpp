@@ -35,7 +35,7 @@
 #include "../Graphics/Renderer.h"
 #include <Atomic/Math/Vector3.h>
 #include <Atomic/IO/Log.h>
-#include <Atomic/Graphics/BillboardSet.h>
+#include <Atomic/Environment/TreeBillboardSet.h>
 #include <Atomic/IO/FileSystem.h>
 #include <ToolCore/Project/Project.h>
 #include <ToolCore/ToolSystem.h>
@@ -62,7 +62,7 @@ namespace Atomic
 		billboardSize_ = 2048;
 		ResourceCache* cache = GetSubsystem<ResourceCache>();
 		Model* treemodel = cache->GetResource<Model>("Models/Tree_Mesh.mdl");
-		CreateBillboard(treemodel);
+		CreateTreeBillboard(treemodel);
 	}
 
 	FoliageSystem::~FoliageSystem()
@@ -213,10 +213,10 @@ namespace Atomic
 					}
 				}
 				////trees remove unused
-				for (HashMap<IntVector2, BillboardSet*>::Iterator i = treeBillboards_.Begin(); i != treeBillboards_.End(); ++i) {
+				for (HashMap<IntVector2, TreeBillboardSet*>::Iterator i = treeTreeBillboards_.Begin(); i != treeTreeBillboards_.End(); ++i) {
 					if (!activeset.Contains(i->first_)) {
 						i->second_->Remove();
-						treeBillboards_.Erase(i->first_);
+						treeTreeBillboards_.Erase(i->first_);
 					}
 				}
 
@@ -232,7 +232,7 @@ namespace Atomic
 
 				////trees create new/missing
 				for (PODVector<IntVector2> ::Iterator i = activeset.Begin(); i != activeset.End(); ++i) {
-					if (!treeBillboards_.Contains(i->Data())) {
+					if (!treeTreeBillboards_.Contains(i->Data())) {
 						DrawTrees(i->Data(), cellsize);
 					}
 				}
@@ -274,12 +274,12 @@ namespace Atomic
 			qp.pos.y_ = terrain_->GetHeight(node_->GetRotation() * qp.pos) + qp.scale;
 			qpList_.Push(qp);
 		}
-		const unsigned NUM_BILLBOARDNODES = 10;
+		const unsigned NUM_TREEBILLBOARDNODES = 10;
 
 		Node *treenode = node_->CreateChild();
 		treenode->SetPosition(Vector3(0.0f, 0.0f, 0.0f));
-		BillboardSet* trees = treenode->CreateComponent<BillboardSet>();
-		trees->SetNumBillboards(NUM_OBJECTS);
+		TreeBillboardSet* trees = treenode->CreateComponent<TreeBillboardSet>();
+		trees->SetNumTreeBillboards(NUM_OBJECTS);
 		trees->SetMaterial(cache->GetResource<Material>("Models/Veg/trees-alphamask.xml"));
 		Texture2D* texture = new Texture2D(context_);
 		texture->SetFilterMode(TextureFilterMode::FILTER_NEAREST);
@@ -294,7 +294,7 @@ namespace Atomic
 		trees->SetSorted(true);
 		for (unsigned int j = 0; j < qpList_.Size(); ++j)
 		{
-			Billboard* bb = trees->GetBillboard(j);
+			TreeBillboard* bb = trees->GetTreeBillboard(j);
 			bb->position_ = qpList_.At(j).pos;
 			bb->size_ = Vector2(qpList_.At(j).scale, qpList_.At(j).scale);
 			bb->enabled_ = true;
@@ -302,7 +302,8 @@ namespace Atomic
 		trees->SetFaceCameraMode(FaceCameraMode::FC_DIRECTION);
 		trees->SetCastShadows(true);
 		trees->Commit();
-		treeBillboards_.InsertNew(sector, trees);
+	
+		treeTreeBillboards_.InsertNew(sector, trees);
 
 
 		//Model *pModel = cache->GetResource<Model>("Models/Veg/vegbrush.mdl");
@@ -526,7 +527,7 @@ namespace Atomic
 	}
 
 
-	void FoliageSystem::CreateBillboard(Model* model) {
+	void FoliageSystem::CreateTreeBillboard(Model* model) {
 		// Create viewport scene 
 		//static bool updateMe = true;
 		////Already done

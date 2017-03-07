@@ -36,7 +36,7 @@
 #include "../Graphics/Zone.h"
 #include "../Scene/Node.h"
 #include "../Graphics/Terrain.h"
-#include "../Graphics/BillboardSet.h"
+#include "../Environment/TreeBillboardSet.h"
 #include "../Environment/GeomReplicator.h"
 #include "Atomic\Container\HashMap.h"
 
@@ -82,14 +82,14 @@ namespace Atomic
 		virtual void OnSetEnabled();
 		//Grass stuff
 		HashMap<IntVector2, GeomReplicator*> vegReplicators_;
-		HashMap<IntVector2, BillboardSet*> treeBillboards_;
+		HashMap<IntVector2, TreeBillboardSet*> treeTreeBillboards_;
 		SharedPtr<Terrain> terrain_;
 		SharedPtr<Node> node_;
 		IntVector2 lastSector_;
 		bool sectorSet_;
 
 		Vector2 CustomWorldToNormalized(Image *height, Terrain *terrain, Vector3 world);
-		void FoliageSystem::CreateBillboard(Model *model);
+		void FoliageSystem::CreateTreeBillboard(Model *model);
 		Image* billboardImage_;
 		int billboardSize_;
 		float boundingRadiusFromAABB(BoundingBox& bb);

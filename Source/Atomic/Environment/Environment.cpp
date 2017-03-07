@@ -26,6 +26,8 @@
 #include "ProcSky.h"
 #include "GeomReplicator.h"
 #include "FoliageSystem.h"
+#include "TreeBillboardSet.h"
+
 
 namespace Atomic
 {
@@ -36,6 +38,7 @@ void RegisterEnvironmentLibrary(Context* context)
     TimeOfDay::RegisterObject(context);
 	GeomReplicator::RegisterObject(context);
 	FoliageSystem::RegisterObject(context);
+	TreeBillboardSet::RegisterObject(context);
 
 }
 
