@@ -182,6 +182,7 @@ static const char* geometryVSVariations[] =
     "INSTANCED ",
     "BILLBOARD ",
     "DIRBILLBOARD ",
+	"TREEBILLBOARD ",
     "TRAILFACECAM ",
     "TRAILBONE "
 };

@@ -87,6 +87,7 @@ vec3 GetBillboardNormal()
 }
 #endif
 
+
 #ifdef DIRBILLBOARD
 mat3 GetFaceCameraRotation(vec3 position, vec3 direction)
 {
@@ -114,6 +115,35 @@ vec3 GetBillboardNormal(vec4 iPos, vec3 iDirection, mat4 modelMatrix)
     return vec3(0.0, 1.0, 0.0) * GetFaceCameraRotation(worldPos, iDirection);
 }
 #endif
+
+
+
+#ifdef TREEBILLBOARD
+mat3 GetFaceCameraRotation(vec3 position, vec3 direction)
+{
+    vec3 cameraDir = normalize(position - cCameraPos);
+    vec3 front = normalize(direction);
+    vec3 right = normalize(cross(front, cameraDir));
+    vec3 up = normalize(cross(front, right));
+
+    return mat3(
+        right.x, up.x, front.x,
+        right.y, up.y, front.y,
+        right.z, up.z, front.z
+    );
+}
+
+vec3 GetBillboardPos(vec4 iPos, vec2 iSize, mat4 modelMatrix)
+{
+    return (iPos * modelMatrix).xyz + vec3(iSize.x, iSize.y, 0.0) * cBillboardRot;
+}
+
+vec3 GetBillboardNormal()
+{
+    return vec3(-cBillboardRot[0][2], -cBillboardRot[1][2], -cBillboardRot[2][2]);
+}
+#endif
+
 
 #ifdef TRAILFACECAM
 vec3 GetTrailPos(vec4 iPos, vec3 iFront, float iScale, mat4 modelMatrix)
@@ -158,6 +188,8 @@ vec3 GetWorldPos(mat4 modelMatrix)
         return GetBillboardPos(iPos, iTexCoord1, modelMatrix);
     #elif defined(DIRBILLBOARD)
         return GetBillboardPos(iPos, iNormal, modelMatrix);
+    #elif defined(TREEBILLBOARD)
+         return GetBillboardPos(iPos, iTexCoord1, modelMatrix);
     #elif defined(TRAILFACECAM)
         return GetTrailPos(iPos, iTangent.xyz, iTangent.w, modelMatrix);
     #elif defined(TRAILBONE)
@@ -173,6 +205,8 @@ vec3 GetWorldNormal(mat4 modelMatrix)
         return GetBillboardNormal();
     #elif defined(DIRBILLBOARD)
         return GetBillboardNormal(iPos, iNormal, modelMatrix);
+    #elif defined(TREEBILLBOARD)
+        return GetBillboardNormal();
     #elif defined(TRAILFACECAM)
         return GetTrailNormal(iPos);
     #elif defined(TRAILBONE)
@@ -188,6 +222,8 @@ vec4 GetWorldTangent(mat4 modelMatrix)
         return vec4(normalize(vec3(1.0, 0.0, 0.0) * cBillboardRot), 1.0);
     #elif defined(DIRBILLBOARD)
         return vec4(normalize(vec3(1.0, 0.0, 0.0) * GetNormalMatrix(modelMatrix)), 1.0);
+    #elif defined(TREEBILLBOARD)
+        return vec4(normalize(vec3(1.0, 0.0, 0.0) * cBillboardRot), 1.0);
     #else
         return vec4(normalize(iTangent.xyz * GetNormalMatrix(modelMatrix)), iTangent.w);
     #endif

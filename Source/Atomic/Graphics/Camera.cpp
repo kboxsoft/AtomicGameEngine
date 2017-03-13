@@ -527,6 +527,7 @@ Quaternion Camera::GetFaceCameraRotation(const Vector3& position, const Quaterni
 
     switch (mode)
     {
+	case FC_TREE:
     case FC_ROTATE_XYZ:
         return node_->GetWorldRotation();
 

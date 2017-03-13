@@ -141,7 +141,7 @@ uniform MaterialVS
 uniform ObjectVS
 {
     mat4 cModel;
-#ifdef BILLBOARD
+#if defined(BILLBOARD) || defined(TREEBILLBOARD)
     mat3 cBillboardRot;
 #endif
 #ifdef SKINNED

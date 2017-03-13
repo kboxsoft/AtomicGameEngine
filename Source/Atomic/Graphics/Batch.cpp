@@ -257,6 +257,13 @@ void Batch::Prepare(View* view, Camera* camera, bool setModelTransform, bool all
             else
                 graphics->SetShaderParameter(VSP_BILLBOARDROT, cameraNode->GetWorldRotation().RotationMatrix());
         }
+		else  if (geometryType_ == GEOM_TREEBILLBOARD)
+		{
+			//if (numWorldTransforms_ > 1)
+			//	graphics->SetShaderParameter(VSP_BILLBOARDROT, worldTransform_[1].RotationMatrix());
+			//else
+				graphics->SetShaderParameter(VSP_BILLBOARDROT, cameraNode->GetWorldRotation().RotationMatrix());
+		}
     }
 
     // Set zone-related shader parameters

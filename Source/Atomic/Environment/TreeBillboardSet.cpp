@@ -54,6 +54,7 @@ const char* treeFaceCameraModeNames[] =
     "LookAt Y",
     "LookAt Mixed",
     "Direction",
+	"Tree",
     0
 };
 
@@ -80,7 +81,7 @@ TreeBillboardSet::TreeBillboardSet(Context* context) :
     scaled_(true),
     sorted_(false),
     fixedScreenSize_(false),
-    faceCameraMode_(FC_ROTATE_XYZ),
+    faceCameraMode_(FC_TREE),
     minAngle_(0.0f),
     geometry_(new Geometry(context)),
     vertexBuffer_(new VertexBuffer(context_)),
@@ -193,7 +194,7 @@ void TreeBillboardSet::UpdateBatches(const FrameInfo& frame)
     {
         if (sorted_)
             sortThisFrame_ = true;
-        if (faceCameraMode_ == FC_DIRECTION)
+        if (faceCameraMode_ == FC_TREE)
             bufferDirty_ = true;
 
         hasOrthoCamera_ = frame.camera_->IsOrthographic();
@@ -229,11 +230,8 @@ void TreeBillboardSet::UpdateGeometry(const FrameInfo& frame)
         CalculateFixedScreenSize(frame);
 
     // If using camera facing, re-update the rotation for the current view now
-    if (faceCameraMode_ != FC_NONE)
-    {
         transforms_[1] = Matrix3x4(Vector3::ZERO, frame.camera_->GetFaceCameraRotation(node_->GetWorldPosition(),
             node_->GetWorldRotation(), faceCameraMode_, minAngle_), Vector3::ONE);
-    }
 
     if (bufferSizeDirty_ || indexBuffer_->IsDataLost())
         UpdateBufferSize();
@@ -317,13 +315,10 @@ void TreeBillboardSet::SetFixedScreenSize(bool enable)
 
 void TreeBillboardSet::SetFaceCameraMode(FaceCameraMode mode)
 {
-    if ((faceCameraMode_ != FC_DIRECTION && mode == FC_DIRECTION) || (faceCameraMode_ == FC_DIRECTION && mode != FC_DIRECTION))
+    if ((faceCameraMode_ != FC_TREE && mode == FC_TREE) || (faceCameraMode_ == FC_TREE && mode != FC_TREE))
     {
         faceCameraMode_ = mode;
-        if (faceCameraMode_ == FC_DIRECTION)
-            batches_[0].geometryType_ = GEOM_DIRBILLBOARD;
-        else
-            batches_[0].geometryType_ = GEOM_BILLBOARD;
+         batches_[0].geometryType_ = GEOM_TREEBILLBOARD;
         geometryTypeUpdate_ = true;
         bufferSizeDirty_ = true;
         Commit();
@@ -375,24 +370,6 @@ void TreeBillboardSet::SetTreeBillboardsAttr(const VariantVector& value)
     unsigned numTreeBillboards = index < value.Size() ? value[index++].GetUInt() : 0;
     SetNumTreeBillboards(numTreeBillboards);
 
-    // Dealing with old TreeBillboard format
-    if (value.Size() == TreeBillboards_.Size() * 6 + 1)
-    {
-        for (Vector<SharedPtr<TreeBillboard>>::Iterator ii = TreeBillboards_.Begin(); ii != TreeBillboards_.End() && index < value.Size(); ++ii)
-        {
-            TreeBillboard* i = *ii;
-            i->position_ = value[index++].GetVector3();
-            i->size_ = value[index++].GetVector2();
-            Vector4 uv = value[index++].GetVector4();
-            i->uv_ = Rect(uv.x_, uv.y_, uv.z_, uv.w_);
-            i->color_ = value[index++].GetColor();
-            i->rotation_ = value[index++].GetFloat();
-            i->enabled_ = value[index++].GetBool();
-        }
-    }
-    // New TreeBillboard format
-    else
-    {
         for (Vector<SharedPtr<TreeBillboard>>::Iterator ii = TreeBillboards_.Begin(); ii != TreeBillboards_.End() && index < value.Size(); ++ii)
         {
             TreeBillboard* i = *ii;
@@ -405,7 +382,6 @@ void TreeBillboardSet::SetTreeBillboardsAttr(const VariantVector& value)
             i->direction_ = value[index++].GetVector3();
             i->enabled_ = value[index++].GetBool();
         }
-    }
 
     Commit();
 }
@@ -513,17 +489,9 @@ void TreeBillboardSet::UpdateBufferSize()
 
     if (vertexBuffer_->GetVertexCount() != numTreeBillboards * 4 || geometryTypeUpdate_)
     {
-        if (faceCameraMode_ == FC_DIRECTION)
-        {
             vertexBuffer_->SetSize(numTreeBillboards * 4, MASK_POSITION | MASK_NORMAL | MASK_COLOR | MASK_TEXCOORD1 | MASK_TEXCOORD2, true);
             geometry_->SetVertexBuffer(0, vertexBuffer_);
 
-        }
-        else
-        {
-            vertexBuffer_->SetSize(numTreeBillboards * 4, MASK_POSITION | MASK_COLOR | MASK_TEXCOORD1 | MASK_TEXCOORD2, true);
-            geometry_->SetVertexBuffer(0, vertexBuffer_);
-        }
         geometryTypeUpdate_ = false;
     }
     if (indexBuffer_->GetIndexCount() != numTreeBillboards * 6)
@@ -622,63 +590,6 @@ void TreeBillboardSet::UpdateVertexBuffer(const FrameInfo& frame)
     if (!dest)
         return;
 
-    if (faceCameraMode_ != FC_DIRECTION)
-    {
-        for (unsigned i = 0; i < enabledTreeBillboards; ++i)
-        {
-            TreeBillboard& TreeBillboard = *sortedTreeBillboards_[i];
-
-            Vector2 size(TreeBillboard.size_.x_ * TreeBillboardScale.x_, TreeBillboard.size_.y_ * TreeBillboardScale.y_);
-            unsigned color = TreeBillboard.color_.ToUInt();
-            if (fixedScreenSize_)
-                size *= TreeBillboard.screenScaleFactor_;
-
-            float rotationMatrix[2][2];
-            SinCos(TreeBillboard.rotation_, rotationMatrix[0][1], rotationMatrix[0][0]);
-            rotationMatrix[1][0] = -rotationMatrix[0][1];
-            rotationMatrix[1][1] = rotationMatrix[0][0];
-
-            dest[0] = TreeBillboard.position_.x_;
-            dest[1] = TreeBillboard.position_.y_;
-            dest[2] = TreeBillboard.position_.z_;
-            ((unsigned&)dest[3]) = color;
-            dest[4] = TreeBillboard.uv_.min_.x_;
-            dest[5] = TreeBillboard.uv_.min_.y_;
-            dest[6] = -size.x_ * rotationMatrix[0][0] + size.y_ * rotationMatrix[0][1];
-            dest[7] = -size.x_ * rotationMatrix[1][0] + size.y_ * rotationMatrix[1][1];
-
-            dest[8] = TreeBillboard.position_.x_;
-            dest[9] = TreeBillboard.position_.y_;
-            dest[10] = TreeBillboard.position_.z_;
-            ((unsigned&)dest[11]) = color;
-            dest[12] = TreeBillboard.uv_.max_.x_;
-            dest[13] = TreeBillboard.uv_.min_.y_;
-            dest[14] = size.x_ * rotationMatrix[0][0] + size.y_ * rotationMatrix[0][1];
-            dest[15] = size.x_ * rotationMatrix[1][0] + size.y_ * rotationMatrix[1][1];
-
-            dest[16] = TreeBillboard.position_.x_;
-            dest[17] = TreeBillboard.position_.y_;
-            dest[18] = TreeBillboard.position_.z_;
-            ((unsigned&)dest[19]) = color;
-            dest[20] = TreeBillboard.uv_.max_.x_;
-            dest[21] = TreeBillboard.uv_.max_.y_;
-            dest[22] = size.x_ * rotationMatrix[0][0] - size.y_ * rotationMatrix[0][1];
-            dest[23] = size.x_ * rotationMatrix[1][0] - size.y_ * rotationMatrix[1][1];
-
-            dest[24] = TreeBillboard.position_.x_;
-            dest[25] = TreeBillboard.position_.y_;
-            dest[26] = TreeBillboard.position_.z_;
-            ((unsigned&)dest[27]) = color;
-            dest[28] = TreeBillboard.uv_.min_.x_;
-            dest[29] = TreeBillboard.uv_.max_.y_;
-            dest[30] = -size.x_ * rotationMatrix[0][0] - size.y_ * rotationMatrix[0][1];
-            dest[31] = -size.x_ * rotationMatrix[1][0] - size.y_ * rotationMatrix[1][1];
-
-            dest += 32;
-        }
-    }
-    else
-    {
         for (unsigned i = 0; i < enabledTreeBillboards; ++i)
         {
             TreeBillboard& TreeBillboard = *sortedTreeBillboards_[i];
@@ -743,7 +654,6 @@ void TreeBillboardSet::UpdateVertexBuffer(const FrameInfo& frame)
 
             dest += 44;
         }
-    }
 
     vertexBuffer_->Unlock();
     vertexBuffer_->ClearDataLost();

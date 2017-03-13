@@ -297,7 +297,7 @@ namespace Atomic
 			TreeBillboard* bb = trees->GetTreeBillboard(j);
 			bb->position_ = qpList_.At(j).pos;
 			bb->size_ = Vector2(qpList_.At(j).scale, qpList_.At(j).scale);
-			bb->direction_ = qpList_.At(j).rot * Vector3::UP;
+			bb->direction_ = qpList_.At(j).rot * Vector3::BACK;
 			bb->enabled_ = true;
 		}
 		trees->SetFaceCameraMode(FaceCameraMode::FC_DIRECTION);

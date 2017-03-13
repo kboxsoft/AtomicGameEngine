@@ -5,8 +5,9 @@
 #include "Lighting.glsl"
 #include "Fog.glsl"
 
-varying vec2 oUv;
-varying vec3 debugColor;
+//varying vec2 oUv;
+//varying vec3 debugColor;
+varying mat3 viewangle;
 
 #ifdef NORMALMAP
     varying vec4 vTexCoord;
@@ -44,28 +45,34 @@ varying vec4 vWorldPos;
     #endif
 #endif
 
-vec3 GetUp (vec3 position, vec3 direction, vec3 camPos)
+
+
+
+mat3 GetTreeViewAngle(vec3 position, vec3 direction, vec3 camPos)
 {
     vec3 cameraDir = normalize(position - camPos);
     vec3 front = normalize(direction);
     vec3 right = normalize(cross(front, cameraDir));
     vec3 up = normalize(cross(front, right));
 
-    return up;
-    // return mat3(
-    //     right.x, up.x, front.x,
-    //     right.y, up.y, front.y,
-    //     right.z, up.z, front.z
-    // );
+    return mat3(
+        right.x, up.x, front.x,
+        right.y, up.y, front.y,
+        right.z, up.z, front.z
+    );
 }
-
 
 void VS()
 {
     mat4 modelMatrix = iModelMatrix;
     vec3 worldPos = GetWorldPos(modelMatrix);
-   // mat3 cameraFaceRot = GetFaceCameraRotation(worldPos, iDirection); 
-    debugColor = GetUp(worldPos, iNormal, cCameraPos); 
+
+    viewangle = inverse(GetTreeViewAngle(iPos.xyz, iNormal, cCameraPos)); 
+
+
+    //float red = viewangle[0][1];
+   // vec3 hstep = floor(horizontal / (1.0/4)) * (1.0/4);
+
     gl_Position = GetClipPos(worldPos);
     vNormal = GetWorldNormal(modelMatrix);
     vWorldPos = vec4(worldPos, GetDepth(gl_Position));
@@ -124,24 +131,34 @@ void VS()
         #endif
     #endif
 	
-	   oUv = GetTexCoord(iTexCoord);
-
-    //    debugColor = vec3(1.0,0.0,0.0);
-    //    #ifdef BILLBOARD
-    //      debugColor = vec3(0.0,1.0,0.0);
-    //    #endif
-    //    #ifdef DIRBILLBOARD
-    //      debugColor = vec3(0.0,0.0,1.0);
-    //    #endif
 }
 
 void PS()
 {
-    //Billboard scroll
-	
 	vec2 scrolled = vTexCoord;
-      scrolled.x = (oUv.x / 4);
-      scrolled.y = (oUv.y / 4) + 0.5;
+
+    //Texture coords for the different faces in the atlas
+    vec2 front = vec2((vTexCoord.x / 4), (vTexCoord.y / 4) + 0.5);
+    vec2 right = vec2((vTexCoord.x / 4) + 0.25, (vTexCoord.y / 4) + 0.5);
+    vec2 back = vec2((vTexCoord.x / 4) + 0.5, (vTexCoord.y / 4) + 0.5);
+    vec2 left = vec2((vTexCoord.x / 4) + 0.75, (vTexCoord.y / 4) + 0.5);
+
+    // if(frontside > 0.5)
+    // {
+    //   scrolled = front;
+    // }
+    // else if (rightside > 0.5) {
+    //   scrolled = right;
+    // }
+    // else if (leftside > 0.5) {
+    //   scrolled = left;
+    // }
+    // else {
+    //   scrolled = back;
+    // }
+
+    //Set to front for testing
+    scrolled = front;
 
     // Get material diffuse albedo
     #ifdef DIFFMAP
@@ -159,11 +176,13 @@ void PS()
         diffColor *= vColor;
     #endif
 
-    diffColor.rgb = debugColor.rgb;
+    //TESTING: SET THE COLOR TO SHOW THE ANGLE
+    vec3 test = viewangle * vec3(0,0,1);
+    diffColor.rgb = test;
     
     // Get material specular albedo
     #ifdef SPECMAP
-        vec3 specColor = cMatSpecColor.rgb * texture2D(sSpecMap, vTexCoord.xy).rgb;
+        vec3 specColor = cMatSpecColor.rgb * texture2D(sSpecMap, scrolled.xy).rgb;
     #else
         vec3 specColor = cMatSpecColor.rgb;
     #endif
@@ -171,7 +190,7 @@ void PS()
     // Get normal
     #ifdef NORMALMAP
         mat3 tbn = mat3(vTangent.xyz, vec3(vTexCoord.zw, vTangent.w), vNormal);
-        vec3 normal = normalize(tbn * DecodeNormal(texture2D(sNormalMap, vTexCoord.xy)));
+        vec3 normal = normalize(tbn * DecodeNormal(texture2D(sNormalMap, scrolled.xy)));
     #else
         vec3 normal = normalize(vNormal);
     #endif
