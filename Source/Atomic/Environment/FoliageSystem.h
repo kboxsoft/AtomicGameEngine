@@ -41,10 +41,10 @@
 #include "Atomic\Container\HashMap.h"
 
 //Number of positions to snapshot in the yaw axis
-#define IMPOSTOR_YAW_ANGLES 4
+#define IMPOSTOR_YAW_ANGLES 8
 
 //Number of positions to snapshot in the pitch axis
-#define IMPOSTOR_PITCH_ANGLES 4
+#define IMPOSTOR_PITCH_ANGLES 8
 
 namespace Atomic
 {
@@ -75,9 +75,9 @@ namespace Atomic
 		void HandleDrawableUpdateFinished(StringHash eventType, VariantMap& eventData);
 		void HandlePostUpdate(StringHash eventType, VariantMap& eventData);
 		void OnNodeSet(Node* node);
-	
+
 		void Initialize();
-	//	void OnNodeSet(Node* node);
+		//	void OnNodeSet(Node* node);
 		/// Handle enabled/disabled state change.
 		virtual void OnSetEnabled();
 		//Grass stuff

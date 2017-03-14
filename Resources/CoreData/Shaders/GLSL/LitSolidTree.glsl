@@ -5,9 +5,20 @@
 #include "Lighting.glsl"
 #include "Fog.glsl"
 
+#define PI 3.14159265358979323846 //couldn't find pi elsewhere :(
+
 //varying vec2 oUv;
 //varying vec3 debugColor;
-varying mat3 viewangle;
+//varying mat3 viewangle;
+
+int numTilesX = 8; // number of texture tiles columns
+int numTilesY = 8; // number of texture tiles rows
+float tileWidth = 1.0/numTilesX; // actual tile width in UV space
+float tileHeight = 1.0/numTilesY; // actual tile height in UV space
+
+varying vec2 uvCoords;
+
+//varying vec3 DBGCOL;
 
 #ifdef NORMALMAP
     varying vec4 vTexCoord;
@@ -47,7 +58,7 @@ varying vec4 vWorldPos;
 
 
 
-
+/*
 mat3 GetTreeViewAngle(vec3 position, vec3 direction, vec3 camPos)
 {
     vec3 cameraDir = normalize(position - camPos);
@@ -61,15 +72,42 @@ mat3 GetTreeViewAngle(vec3 position, vec3 direction, vec3 camPos)
         right.z, up.z, front.z
     );
 }
+*/
+
+mat3 GetTreeRotMatrix(vec3 dir)
+{
+	vec3 ny = normalize(dir);
+	vec3 nz = normalize(cross(ny, vec3(0, 0, -1)));
+	vec3 nx = normalize(cross(ny, nz));
+	return mat3(-nx, nz, -ny);
+}
+
+mat4 RotationMatrix(vec3 axis, float angle)
+{
+    axis = normalize(axis);
+    float s = sin(angle);
+    float c = cos(angle);
+    float oc = 1.0 - c;
+    
+    return mat4(oc * axis.x * axis.x + c,           oc * axis.x * axis.y - axis.z * s,  oc * axis.z * axis.x + axis.y * s,  0.0,
+                oc * axis.x * axis.y + axis.z * s,  oc * axis.y * axis.y + c,           oc * axis.y * axis.z - axis.x * s,  0.0,
+                oc * axis.z * axis.x - axis.y * s,  oc * axis.y * axis.z + axis.x * s,  oc * axis.z * axis.z + c,           0.0,
+                0.0,                                0.0,                                0.0,                                1.0);
+}
+
+vec2 GetUVtoSample(vec2 uvMins)
+{
+	return vec2((vTexCoord.x / numTilesX) + uvMins.x, (vTexCoord.y / numTilesY) + 1 - (uvMins.y + tileHeight));
+}
+
 
 void VS()
 {
     mat4 modelMatrix = iModelMatrix;
     vec3 worldPos = GetWorldPos(modelMatrix);
 
-    viewangle = inverse(GetTreeViewAngle(iPos.xyz, iNormal, cCameraPos)); 
-
-
+    //viewangle = inverse(GetTreeViewAngle(iPos.xyz, iNormal, cCameraPos)); 
+	
     //float red = viewangle[0][1];
    // vec3 hstep = floor(horizontal / (1.0/4)) * (1.0/4);
 
@@ -131,17 +169,49 @@ void VS()
         #endif
     #endif
 	
+	
+	
+	
+	//vec3 objectPos = iPos.xyz;//(cModel * vec4(0,0,0,1)).xyz;
+	
+	//vec3 treeCamVec = vec3(1,1,1) * cBillboardRot;
+	
+	vec3 treeCamVec = (RotationMatrix(vec3(0,1,0), iNormal.x) * vec4((cCameraPos - GetBillboardPos(iPos, vec2(0,0), iModelMatrix).xyz), 1)).xyz;
+	
+	float tileMinX = floor(((atan(treeCamVec.x, treeCamVec.z) / PI + 1) / 2) * numTilesX) / numTilesX;
+	//float tileMinY = (int((((treeCamVec.y) / length(vec2(treeCamVec.x, treeCamVec.z)) + 1) / 2) * (numTilesY + 1)) - 1) / float(numTilesY + 1) * (tileHeight / (1f / (numTilesY + 1)));
+	//float tileMinY = (floor(((treeCamVec.y / length(vec2(treeCamVec.x, treeCamVec.z)) + 1) / 2) * (numTilesY + 1)) - 1) / (numTilesY + 1) * (tileHeight / (1f / (numTilesY + 1)));
+	
+	//float tileMinY = (floor(((treeCamVecNorm.y / length(vec2(treeCamVecNorm.x, treeCamVecNorm.z)) + 1) / 2) * (numTilesY + 1)) - 1) / (numTilesY + 1) * (tileHeight / (1f / (numTilesY + 1)));
+	//float tileMinY = ((((treeCamVecNorm.y / length(vec2(treeCamVecNorm.x, treeCamVecNorm.z))))));
+
+	float tileMinY = (floor((((normalize(treeCamVec).y) + 1) / 2) * (numTilesY + 1)) - 1) / (numTilesY + 1) * (tileHeight / (1f / (numTilesY + 1)));
+	
+	//cache uv coords
+	uvCoords = GetUVtoSample(vec2(tileMinX, tileMinY));
+	
+	
+	// float r = 0;
+	// if (cCameraPos.x > GetBillboardPos(iPos, vec2(0,0), iModelMatrix).x){
+		// r=1;
+	// }
+	// DBGCOL = vec3(r,0,0);
+	
 }
+
+
 
 void PS()
 {
-	vec2 scrolled = vTexCoord;
-
+	vec2 scrolled = uvCoords;
+	
+	
+	
     //Texture coords for the different faces in the atlas
-    vec2 front = vec2((vTexCoord.x / 4), (vTexCoord.y / 4) + 0.5);
-    vec2 right = vec2((vTexCoord.x / 4) + 0.25, (vTexCoord.y / 4) + 0.5);
-    vec2 back = vec2((vTexCoord.x / 4) + 0.5, (vTexCoord.y / 4) + 0.5);
-    vec2 left = vec2((vTexCoord.x / 4) + 0.75, (vTexCoord.y / 4) + 0.5);
+    // vec2 front = vec2((vTexCoord.x / 4), (vTexCoord.y / 4) + 0.5);
+    // vec2 right = vec2((vTexCoord.x / 4) + 0.25, (vTexCoord.y / 4) + 0.5);
+    // vec2 back = vec2((vTexCoord.x / 4) + 0.5, (vTexCoord.y / 4) + 0.5);
+    // vec2 left = vec2((vTexCoord.x / 4) + 0.75, (vTexCoord.y / 4) + 0.5);
 
     // if(frontside > 0.5)
     // {
@@ -158,7 +228,7 @@ void PS()
     // }
 
     //Set to front for testing
-    scrolled = front;
+    //scrolled = front;
 
     // Get material diffuse albedo
     #ifdef DIFFMAP
@@ -177,9 +247,11 @@ void PS()
     #endif
 
     //TESTING: SET THE COLOR TO SHOW THE ANGLE
-    vec3 test = viewangle * vec3(0,0,1);
-    diffColor.rgb = test;
+    //diffColor.rgb = vec3(viewangle,0,0);
     
+	//gl_FragColor = vec4(DBGCOL, 1);
+	//return;
+	
     // Get material specular albedo
     #ifdef SPECMAP
         vec3 specColor = cMatSpecColor.rgb * texture2D(sSpecMap, scrolled.xy).rgb;
@@ -300,4 +372,5 @@ void PS()
 
         gl_FragColor = vec4(GetFog(finalColor, fogFactor), diffColor.a);
     #endif
+		
 }

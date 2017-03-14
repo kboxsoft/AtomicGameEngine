@@ -59,7 +59,11 @@ namespace Atomic
 		initialized_ = false;
 		context_ = context;
 		billboardImage_ = nullptr;
-		billboardSize_ = 2048;
+#ifdef ATOMIC_PLATFORMDESKTOP
+		billboardSize_ = 4096;
+#else
+		billboardSize_ = 1024;
+#endif
 		ResourceCache* cache = GetSubsystem<ResourceCache>();
 		Model* treemodel = cache->GetResource<Model>("Models/Tree_Mesh.mdl");
 		CreateTreeBillboard(treemodel);
@@ -71,7 +75,7 @@ namespace Atomic
 
 	//void FoliageSystem::ApplyAttributes()
 	//{
-	
+
 	//}
 
 
@@ -89,7 +93,7 @@ namespace Atomic
 		if (component == this) {
 			for (HashMap<IntVector2, GeomReplicator*>::Iterator i = vegReplicators_.Begin(); i != vegReplicators_.End(); ++i)
 			{
-			//	i->second_->Remove();
+				//	i->second_->Remove();
 			}
 		}
 
@@ -108,7 +112,7 @@ namespace Atomic
 
 		for (HashMap<IntVector2, GeomReplicator*>::Iterator i = vegReplicators_.Begin(); i != vegReplicators_.End(); ++i)
 		{
-		//	i->second_->SetEnabled(false);
+			//	i->second_->SetEnabled(false);
 		}
 
 	}
@@ -141,7 +145,7 @@ namespace Atomic
 		if (!initialized_)
 			Initialize();
 		this->UnsubscribeFromEvent(E_SCENEDRAWABLEUPDATEFINISHED);
-		
+
 	}
 
 	void FoliageSystem::HandlePostUpdate(StringHash eventType, VariantMap& eventData)
@@ -160,7 +164,7 @@ namespace Atomic
 		IntVector2 terrainsize = (terrain_->GetNumPatches() * terrain_->GetPatchSize());
 		IntVector2 cellsize = terrainsize / 4;
 
-		Camera *cam =  viewport->GetCamera();
+		Camera *cam = viewport->GetCamera();
 		if (cam) {
 			Vector3 campos = cam->GetNode()->GetPosition();
 			campos.y_ = 0;
@@ -168,12 +172,12 @@ namespace Atomic
 			IntVector2 campos2d = IntVector2(campos.x_, campos.z_);
 
 
-			IntVector2 sector = IntVector2(  floor(campos2d.x_ / cellsize.x_) - 1, floor(campos2d.y_ / cellsize.y_) -1);
-		
+			IntVector2 sector = IntVector2(floor(campos2d.x_ / cellsize.x_) - 1, floor(campos2d.y_ / cellsize.y_) - 1);
+
 
 			//ATOMIC_LOGDEBUG(sector.ToString());
 
-			
+
 			if (lastSector_ != sector)
 			{
 				lastSector_ = sector;
@@ -188,7 +192,7 @@ namespace Atomic
 				//}
 				//if (sector.y_ < lastSector_.y_) {
 				//	ATOMIC_LOGDEBUG("Moved -Z");
-			 //   }
+				//   }
 
 
 
@@ -221,7 +225,7 @@ namespace Atomic
 				}
 
 				//sectorSet_ = true;
-				
+
 
 				//grass create new/missing
 				for (PODVector<IntVector2> ::Iterator i = activeset.Begin(); i != activeset.End(); ++i) {
@@ -236,7 +240,7 @@ namespace Atomic
 						DrawTrees(i->Data(), cellsize);
 					}
 				}
-				
+
 				//DrawGrass(sector, cellsize);
 				//DrawGrass(sector + IntVector2(1,1), cellsize);
 				//DrawGrass(sector + IntVector2(1, -1), cellsize);
@@ -297,13 +301,17 @@ namespace Atomic
 			TreeBillboard* bb = trees->GetTreeBillboard(j);
 			bb->position_ = qpList_.At(j).pos;
 			bb->size_ = Vector2(qpList_.At(j).scale, qpList_.At(j).scale);
-			bb->direction_ = qpList_.At(j).rot * Vector3::BACK;
+
+			//TODO FIXME BELOW
+			float debugRandRot = Random(360.0f);
+			bb->direction_ = Vector3(debugRandRot, debugRandRot, debugRandRot);//qpList_.At(j).rot * Vector3::BACK;
+
 			bb->enabled_ = true;
 		}
 		trees->SetFaceCameraMode(FaceCameraMode::FC_DIRECTION);
 		trees->SetCastShadows(true);
 		trees->Commit();
-	
+
 		treeTreeBillboards_.InsertNew(sector, trees);
 
 
@@ -419,7 +427,7 @@ namespace Atomic
 	void FoliageSystem::DrawGrass(IntVector2 sector, IntVector2 cellsize) {
 		const unsigned NUM_OBJECTS = 5000;
 
-		if (!terrain_){
+		if (!terrain_) {
 			ATOMIC_LOGERROR("Foliage system couldn't find terrain");
 			return;
 		}
@@ -439,11 +447,11 @@ namespace Atomic
 		float ratio = ((float)splatmap->GetWidth() / (float)height->GetWidth());
 
 		PODVector<PRotScale> qpList_;
-	//	Vector3 rotatedpos = (rot.Inverse() * qp.pos);  //  (rot.Inverse() * qp.pos) + terrainpos;
+		//	Vector3 rotatedpos = (rot.Inverse() * qp.pos);  //  (rot.Inverse() * qp.pos) + terrainpos;
 		for (unsigned i = 0; i < NUM_OBJECTS; ++i)
 		{
 			PRotScale qp;
-			
+
 
 			qp.pos = (node_->GetRotation().Inverse() * Vector3(Random((float)cellsize.x_), 0.0f, Random((float)cellsize.y_))) + (node_->GetRotation().Inverse() * position);
 			//IntVector2 splatpos = terrain_->WorldToHeightMap(qp.pos);
@@ -516,8 +524,8 @@ namespace Atomic
 
 	float FoliageSystem::boundingRadiusFromAABB(BoundingBox& aabb)
 	{
-	    Vector3& max = aabb.max_;
-	    Vector3& min = aabb.min_;
+		Vector3& max = aabb.max_;
+		Vector3& min = aabb.min_;
 
 		Vector3 magnitude = max;
 		magnitude = makeCeil(magnitude, -max);
@@ -551,10 +559,10 @@ namespace Atomic
 				_pZoneAmbient->SetBoundingBox(BoundingBox(-2048.0f, 2048.0f));
 				Zone* mainzone = nullptr;
 				//if(node_)
-			 //   	Zone* mainzone = node_->GetScene()->GetComponent<Zone>(true);
+				//   	Zone* mainzone = node_->GetScene()->GetComponent<Zone>(true);
 				////_pZoneAmbient->SetAmbientColor(Color(0.3f, 0.3f, 0.3f));
-			 //   if(mainzone)
-			 //   	_pZoneAmbient->SetAmbientColor(mainzone->GetAmbientColor());
+				//   if(mainzone)
+				//   	_pZoneAmbient->SetAmbientColor(mainzone->GetAmbientColor());
 
 				_pZoneAmbient->SetAmbientColor(Color(0.5f, 0.5f, 0.5f));
 				//_pZoneAmbient->SetFogColor(Color::CYAN);
@@ -570,7 +578,7 @@ namespace Atomic
 		Camera* _pCamera;
 
 		if (m_p3DViewportCameraNode != nullptr)
-			 _pCamera = m_p3DViewportCameraNode->CreateComponent<Camera>();
+			_pCamera = m_p3DViewportCameraNode->CreateComponent<Camera>();
 
 		// Create rendertarget
 		Texture2D* m_p3DViewportRenderTexture = new Texture2D(context_);
@@ -581,7 +589,7 @@ namespace Atomic
 
 		if (_pRenderSurface == nullptr)
 			return;
-	
+
 		Viewport* _pViewport = (new Viewport(context_, m_p3DViewportScene, m_p3DViewportCameraNode->GetComponent<Camera>()));
 		SharedPtr<RenderPath> treepath = _pViewport->GetRenderPath()->Clone();
 
@@ -662,14 +670,14 @@ namespace Atomic
 
 		_pViewport->SetRenderPath(treepath);
 
-	    _pRenderSurface->SetViewport(0, _pViewport);
+		_pRenderSurface->SetViewport(0, _pViewport);
 		_pRenderSurface->SetUpdateMode(RenderSurfaceUpdateMode::SURFACE_MANUALUPDATE);
 
-		
+
 		Node* m_pModelNode = m_p3DViewportScene->CreateChild();
 
 		StaticModel* _pStaticModel = m_pModelNode->CreateComponent<StaticModel>();
-	
+
 		_pStaticModel->SetModel(model);
 		_pStaticModel->SetCastShadows(false);
 		//_pStaticModel->ApplyMaterialList();
@@ -718,7 +726,7 @@ namespace Atomic
 
 				for (int i = 0; i < IMPOSTOR_YAW_ANGLES; ++i) { //8 yaw angle renders
 					float yaw = (360.0f * i) * xDivFactor; //0, 45, 90, 135, 180, 225, 270, 315
-																	//Position camera
+														   //Position camera
 					m_p3DViewportCameraNode->SetPosition(Vector3(0, 0, 0));
 					m_p3DViewportCameraNode->SetRotation(Quaternion(yaw, Vector3::UP) * Quaternion(-pitch, Vector3::RIGHT));
 					m_p3DViewportCameraNode->Translate(Vector3(0, 0, -objDist), TS_LOCAL);
@@ -737,12 +745,12 @@ namespace Atomic
 				}
 			}
 		}
-		
 
-		
+
+
 		// Image saving
 		billboardImage_ = new Image(context_);
-		
+
 		unsigned char* _ImageData = new unsigned char[m_p3DViewportRenderTexture->GetDataSize(billboardSize_, billboardSize_)];
 		m_p3DViewportRenderTexture->GetData(0, _ImageData);
 
@@ -766,7 +774,7 @@ namespace Atomic
 
 		//String name = node_->GetScene()->GetFileName();
 		//String dir = GetParentPath(name);
-		
+
 		//ToolCore::ToolSystem* toolsystem = GetSubsystem<ToolCore::ToolSystem>();
 		//if (toolsystem) {
 		//	ToolCore::Project* project = toolsystem->GetProject();
@@ -777,6 +785,6 @@ namespace Atomic
 		billboardImage_->SavePNG("test.png");
 		//ATOMIC_LOGDEBUG("Wrote " + name + "test.png");
 
-	    delete[] _ImageData;
+		delete[] _ImageData;
 	}
 }
