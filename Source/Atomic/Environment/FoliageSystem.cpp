@@ -59,7 +59,7 @@ namespace Atomic
 		initialized_ = false;
 		context_ = context;
 		billboardImage_ = nullptr;
-#ifdef ATOMIC_PLATFORMDESKTOP
+#ifdef ATOMIC_PLATFORM_DESKTOP
 		billboardSize_ = 4096;
 #else
 		billboardSize_ = 1024;
@@ -274,7 +274,7 @@ namespace Atomic
 
 			qp.pos = (node_->GetRotation().Inverse() * Vector3(Random(cellsize.x_), 0.0f, Random(cellsize.y_))) + (node_->GetRotation().Inverse() * position);
 			qp.rot = Quaternion(Random(360.0f), Vector3::UP);
-			qp.scale = 2.5f + Random(4.0f);
+			qp.scale = 5.0f; // 2.5f + Random(4.0f);
 			qp.pos.y_ = terrain_->GetHeight(node_->GetRotation() * qp.pos) + 3;
 			qpList_.Push(qp);
 		}

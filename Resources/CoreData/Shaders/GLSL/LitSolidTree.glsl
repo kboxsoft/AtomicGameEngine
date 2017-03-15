@@ -4,17 +4,20 @@
 #include "ScreenPos.glsl"
 #include "Lighting.glsl"
 #include "Fog.glsl"
-
-#define PI 3.14159265358979323846 //couldn't find pi elsewhere :(
+#include "Constants.glsl"
 
 //varying vec2 oUv;
 //varying vec3 debugColor;
 //varying mat3 viewangle;
 
-int numTilesX = 8; // number of texture tiles columns
-int numTilesY = 8; // number of texture tiles rows
+int numTilesX = 16; // number of texture tiles columns
+int numTilesY = 16; // number of texture tiles rows
 float tileWidth = 1.0/numTilesX; // actual tile width in UV space
 float tileHeight = 1.0/numTilesY; // actual tile height in UV space
+
+float invisibleDist = 100;
+float fadeGap = 10;
+varying float alpha;
 
 varying vec2 uvCoords;
 
@@ -178,7 +181,7 @@ void VS()
 	
 	vec3 treeCamVec = (RotationMatrix(vec3(0,1,0), iNormal.x) * vec4((cCameraPos - GetBillboardPos(iPos, vec2(0,0), iModelMatrix).xyz), 1)).xyz;
 	
-	float tileMinX = floor(((atan(treeCamVec.x, treeCamVec.z) / PI + 1) / 2) * numTilesX) / numTilesX;
+	float tileMinX = floor(((atan(treeCamVec.x, treeCamVec.z) / M_PI + 1) / 2) * numTilesX) / numTilesX;
 	//float tileMinY = (int((((treeCamVec.y) / length(vec2(treeCamVec.x, treeCamVec.z)) + 1) / 2) * (numTilesY + 1)) - 1) / float(numTilesY + 1) * (tileHeight / (1f / (numTilesY + 1)));
 	//float tileMinY = (floor(((treeCamVec.y / length(vec2(treeCamVec.x, treeCamVec.z)) + 1) / 2) * (numTilesY + 1)) - 1) / (numTilesY + 1) * (tileHeight / (1f / (numTilesY + 1)));
 	
@@ -190,7 +193,9 @@ void VS()
 	//cache uv coords
 	uvCoords = GetUVtoSample(vec2(tileMinX, tileMinY));
 	
-	
+	float dist = distance(cCameraPos.xz, iPos.xz);
+    alpha = (invisibleDist - dist) / fadeGap;
+
 	// float r = 0;
 	// if (cCameraPos.x > GetBillboardPos(iPos, vec2(0,0), iModelMatrix).x){
 		// r=1;
@@ -370,7 +375,9 @@ void PS()
             finalColor += cMatEmissiveColor;
         #endif
 
-        gl_FragColor = vec4(GetFog(finalColor, fogFactor), diffColor.a);
+        vec4 col = vec4(finalColor.r, finalColor.g, finalColor.b, 0.1);
+
+        gl_FragColor = col;//vec4(GetFog(col, fogFactor), diffColor.a);
     #endif
 		
 }
