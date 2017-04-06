@@ -64,6 +64,7 @@
 #include <Atomic/Navigation/Navigable.h>
 #include <Atomic/Resource/ResourceEvents.h>
 
+#include <Atomic/Resource/XMLFile.h>
 
 namespace AtomicEditor
 {
@@ -289,10 +290,10 @@ namespace AtomicEditor
 		//ATOMIC_LOGDEBUG("Updating cursor");
 
 		////Only update terrain 30 times per second, there's no point going faster and this should make it smoother
-		//framerateTimer_ += eventData[Update::P_TIMESTEP].GetFloat();
-		//if (framerateTimer_ < 1 / 30)
-		//	return;
-		//framerateTimer_ = 0;
+		framerateTimer_ += eventData[Update::P_TIMESTEP].GetFloat();
+		if (framerateTimer_ < 1 / 2)
+			return;
+		framerateTimer_ = 0;
 
 		float dt = eventData[Update::P_TIMESTEP].GetFloat();
 
@@ -337,11 +338,14 @@ namespace AtomicEditor
 			else if (mode_ == TerrainEditMode::FLATTEN) {
 				ApplyHeightBrush(terrain_, heightmap, nullptr, cursorPosition_.x_, cursorPosition_.z_, radius, flattenHeight_, smoothpower, brushHardness_, false, dt);
 			}
+			//else if (mode_ == TerrainEditMode::PAINT) {
+			//	ApplyBlendBrush(terrain_, heightmap, colorMap_, nullptr, cursorPosition_.x_, cursorPosition_.z_, radius, max, paintpower, brushHardness_, paintLayer_, false, dt);
+			//}
 			else if (mode_ == TerrainEditMode::PAINT) {
-				ApplyBlendBrush(terrain_, heightmap, colorMap_, nullptr, cursorPosition_.x_, cursorPosition_.z_, radius, max, paintpower, brushHardness_, paintLayer_, false, dt);
+				DrawObject(terrain_, heightmap, nullptr, cursorPosition_.x_, cursorPosition_.y_, cursorPosition_.z_, radius, max, paintpower, brushHardness_, paintLayer_, false, dt);
 			}
 
-			if (mode_ != TerrainEditMode::PAINT) {
+			if (mode_ != TerrainEditMode::PAINT && mode_ != TerrainEditMode::OBJECTS) {
 				terrain_->ApplyHeightMap();
 			}
 			else {
@@ -664,5 +668,86 @@ namespace AtomicEditor
 				}
 			}
 		}
+	}
+
+
+	void TerrainEditor::DrawObject(Terrain *terrain, Image *height, Image *mask, float x, float y, float z, float radius, float mx, float power, float hardness, int layer, bool usemask, float dt)
+	{
+		if (!height || !terrain) return;
+		
+		Quaternion rot = terrain->GetNode()->GetRotation();
+		Vector3 pos = Vector3(x, 0, z);
+		Vector3 rotatedpos = rot.Inverse() * pos;
+		Vector2 normalized = CustomWorldToNormalized(height, terrain, rotatedpos);
+		float ratio = ((float)height->GetWidth() / (float)height->GetWidth());
+		int ix = (normalized.x_*(float)(height->GetWidth() - 1));
+		int iy = (normalized.y_*(float)(height->GetHeight() - 1));
+		iy = height->GetHeight() - iy;
+
+		float rad = radius*ratio;
+		int sz = rad + 1;
+
+		ResourceCache* cache = GetSubsystem<ResourceCache>();
+		//XMLFile* prefabptr = cache->GetResource<XMLFile>("TreeSystem/pine.prefab");
+		//
+		//Node *forest = scene_->GetChild("Forest", true);
+		//if (!forest)
+		//	return;
+
+		//Node *treenode = scene_->Instantiate(prefab , Vector3(x, y, z), Quaternion::IDENTITY, CreateMode::LOCAL);
+		//scene_->AddChild(treenode);
+
+		//Model* treemodel = cache->GetResource<Model>("Models/Tree_Mesh.mdl");
+
+
+		//Node *treenode = new Node(context_);
+		//Node *forest = scene_->GetChild("Forest", true);
+		//if (!forest)
+		//	return;
+		//scene_->AddChild(treenode);
+		//StaticModel *tree = new StaticModel(context_);
+		//treenode->AddComponent(tree, 0, CreateMode::LOCAL);
+		//tree->SetModel(treemodel);
+		//Material* treemat = cache->GetResource<Material>("Materials/Optimized Bark Material.material");
+		//tree->SetMaterial(treemat);
+		//treenode->SetPosition(Vector3(x, y, z));
+
+
+		//Model* treemodel = cache->GetResource<Model>("7e820a51fabd7f4f2107cc5f87fc5d12.mdl");
+
+		Node *forest = scene_->GetChild("Forest", true);
+		if (!forest)
+			return;
+
+		Node *treenode = new Node(context_);
+		forest->AddChild(treenode);
+		PrefabComponent* prefabComponent = treenode->CreateComponent<PrefabComponent>();
+		prefabComponent->SetPrefabGUID("TreeSystem/broadleaf.prefab");
+		treenode->SetName("PineTree");
+		treenode->SetPosition(Vector3(x, y, z));
+
+		//Node *forest = scene_->GetChild("Forest", true);
+		//if (!forest)
+		//	return;
+		//scene_->AddChild(treenode);
+		//StaticModel *tree = new StaticModel(context_);
+		//treenode->AddComponent(tree, 0, CreateMode::LOCAL);
+		//tree->SetModel(treemodel);
+		//Material* PineBark02 = cache->GetResource<Material>("Models/TorqueTrees/Materials/PineBark02.material");
+		//Material* PineNeedles02 = cache->GetResource<Material>("Models/TorqueTrees/Materials/PineNeedles02.material");
+		//Material* DeadPineNeedles02 = cache->GetResource<Material>("Models/TorqueTrees/Materials/DeadPineNeedles02.material");
+
+	    
+	
+
+
+
+		//for (int hx = ix - sz; hx <= ix + sz; ++hx)
+		//{
+		//	for (int hz = iy - sz; hz <= iy + sz; ++hz)
+		//	{
+		//	
+		//	}
+		//}
 	}
 }

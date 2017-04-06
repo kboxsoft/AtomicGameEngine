@@ -55,7 +55,8 @@ namespace AtomicEditor
 		SMOOTH,
 		FLATTEN,
 		SETHEIGHT,
-		PAINT
+		PAINT,
+		OBJECTS
 	};
 
     class SceneEditor3D;
@@ -101,6 +102,7 @@ namespace AtomicEditor
 		void UpdateTerrainCursor();
 		void SetBrushCursorHeight(Terrain* terrain);
 		void ApplyBlendBrush(Terrain *terrain, Image *height, ColorMap *blend, Image *mask, float x, float z, float radius, float mx, float power, float hardness, int layer, bool usemask, float dt);
+		void DrawObject(Terrain *terrain, Image *height, Image *mask, float x, float y, float z, float radius, float mx, float power, float hardness, int layer, bool usemask, float dt);
 
 		float framerateTimer_;
 		Vector3 cursorPosition_;
