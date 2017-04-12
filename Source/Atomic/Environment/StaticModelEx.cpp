@@ -1,4 +1,5 @@
 #include <Atomic/Environment/StaticModelEx.h>
+#include <Atomic/Environment/Wind.h>
 #include <Atomic/Core/Attribute.h>
 
 #include <Atomic/Core/Context.h>
@@ -143,26 +144,26 @@ void StaticModelEx::OnSceneSet(Scene* scene)
     StaticModel::OnSceneSet(scene);
     if (scene)
     {
-      //  windSystem_ = scene->GetOrCreateComponent<WindSystem>();
-     //   UpdateReferencedMaterials();
+        windSystem_ = scene->GetOrCreateComponent<WindSystem>();
+        UpdateReferencedMaterials();
     }
 }
 
 void StaticModelEx::UpdateReferencedMaterials()
 {
-    //if (windSystem_ && applyWind_)
-    //{
-    //    for (unsigned i = 0; i < geometryDataEx_.Size(); ++i)
-    //    {
-    //        windSystem_->ReferenceMaterial(geometryDataEx_[i].originalMaterial_);
-    //    }
-    //}
+    if (windSystem_ && applyWind_)
+    {
+        for (unsigned i = 0; i < geometryDataEx_.Size(); ++i)
+        {
+            windSystem_->ReferenceMaterial(geometryDataEx_[i].originalMaterial_);
+        }
+    }
 }
 
 void StaticModelEx::UpdateReferencedMaterial(Material* material)
 {
-    //if (windSystem_ && applyWind_)
-    //    windSystem_->ReferenceMaterial(material);
+    if (windSystem_ && applyWind_)
+        windSystem_->ReferenceMaterial(material);
 }
 
 void StaticModelEx::SetMaterialImpl(unsigned index, Material* material)
@@ -348,7 +349,7 @@ void StaticModelEx::UpdateLodLevels(const FrameInfo& frame)
 
 void StaticModelEx::UpdateWind()
 {
-   /* if (windSystem_ && applyWind_)
+    if (windSystem_ && applyWind_)
     {
         if (cloneMaterials_ && windSystem_->HasLocalWindZones())
         {
@@ -371,7 +372,7 @@ void StaticModelEx::UpdateWind()
         {
             SetCloneRequest(CR_WIND, false);
         }
-    }*/
+    }
 }
 
 }

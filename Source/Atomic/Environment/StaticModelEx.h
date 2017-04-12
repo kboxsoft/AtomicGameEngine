@@ -1,7 +1,7 @@
 #pragma once
 
 //#include <Atomic/Common.h>
-//#include <Atomic/Graphics/Wind.h>
+#include <Atomic/Environment/Wind.h>
 
 #include <Atomic/Graphics/StaticModel.h>
 #include <Atomic/Graphics/Drawable.h>
@@ -121,7 +121,7 @@ private:
     static const unsigned CR_WIND = 1 << 1;
 
     /// Wind system.
-    //WeakPtr<WindSystem> windSystem_;
+    WeakPtr<WindSystem> windSystem_;
 
     /// Whether to receive wind updates.
     bool applyWind_ = false;
