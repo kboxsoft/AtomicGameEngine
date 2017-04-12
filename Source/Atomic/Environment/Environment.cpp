@@ -27,6 +27,7 @@
 #include "GeomReplicator.h"
 #include "FoliageSystem.h"
 #include "TreeBillboardSet.h"
+#include "StaticModelEx.h"
 
 
 namespace Atomic
@@ -39,7 +40,7 @@ void RegisterEnvironmentLibrary(Context* context)
 	GeomReplicator::RegisterObject(context);
 	FoliageSystem::RegisterObject(context);
 	TreeBillboardSet::RegisterObject(context);
-
+	StaticModelEx::RegisterObject(context);
 }
 
 }
