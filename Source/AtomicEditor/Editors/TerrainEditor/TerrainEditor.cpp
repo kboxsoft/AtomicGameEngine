@@ -739,12 +739,27 @@ namespace AtomicEditor
 
 		forest->AddChild(treenode);
 		StaticModelEx *tree = new StaticModelEx(context_);
-		Model *treemodel = cache->GetResource<Model>("Models/Crate.mdl");
+		Model *treemodel1 = cache->GetResource<Model>("Models/Bucket1_Bucket1.mdl");
+		Model *treemodel2 = cache->GetResource<Model>("Models/Crate.mdl");
 		treenode->AddComponent(tree, 0, CreateMode::LOCAL);
-		tree->SetModel(treemodel);
+		
+
+		Geometry* lod1 = treemodel1->GetGeometry(0, 1);
+		Geometry* lod2 = treemodel2->GetGeometry(0, 1);
+		lod1->SetLodDistance(0);
+		lod2->SetLodDistance(10);
+
+		Model *lodtree = treemodel1;
+		lodtree->SetNumGeometries(1);
+		lodtree->SetNumGeometryLodLevels(0, 2);
+		lodtree->SetGeometry(0, 0, lod1);
+		lodtree->SetGeometry(0, 1, lod2);
+	
+		tree->SetModel(lodtree);
+
 		Material *mat = cache->GetResource<Material>("Materials/Crate.material");
 		tree->SetMaterial(mat);
-		treenode->SetPosition(Vector3(x, y, z));
+		treenode->SetPosition(Vector3(x, y+2, z));
 
 
 		//for (int hx = ix - sz; hx <= ix + sz; ++hx)
