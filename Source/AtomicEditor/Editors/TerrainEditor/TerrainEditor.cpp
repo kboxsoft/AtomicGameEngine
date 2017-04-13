@@ -65,6 +65,7 @@
 #include <Atomic/Resource/ResourceEvents.h>
 
 #include <Atomic/Resource/XMLFile.h>
+#include <Atomic/Environment/StaticModelEx.h>
 
 namespace AtomicEditor
 {
@@ -719,27 +720,31 @@ namespace AtomicEditor
 		if (!forest)
 			return;
 
+		String treename = "x" + (String)x + "y" + (String)y + "z" + (String)z;
+
+		Node* oldtree = forest->GetChild(treename, true);
+
+		if (oldtree)
+		   return;
+
 		Node *treenode = new Node(context_);
+		treenode->SetName(treename);
+		
+		//forest->AddChild(treenode);
+		//PrefabComponent* prefabComponent = treenode->CreateComponent<PrefabComponent>();
+		//prefabComponent->SetPrefabGUID("TreeSystem/broadleaf.prefab");
+		////treenode->SetName("PineTree");
+		//treenode->SetPosition(Vector3(x, y, z));
+
+
 		forest->AddChild(treenode);
-		PrefabComponent* prefabComponent = treenode->CreateComponent<PrefabComponent>();
-		prefabComponent->SetPrefabGUID("TreeSystem/broadleaf.prefab");
-		treenode->SetName("PineTree");
+		StaticModelEx *tree = new StaticModelEx(context_);
+		Model *treemodel = cache->GetResource<Model>("Models/Crate.mdl");
+		treenode->AddComponent(tree, 0, CreateMode::LOCAL);
+		tree->SetModel(treemodel);
+		Material *mat = cache->GetResource<Material>("Materials/Crate.material");
+		tree->SetMaterial(mat);
 		treenode->SetPosition(Vector3(x, y, z));
-
-		//Node *forest = scene_->GetChild("Forest", true);
-		//if (!forest)
-		//	return;
-		//scene_->AddChild(treenode);
-		//StaticModel *tree = new StaticModel(context_);
-		//treenode->AddComponent(tree, 0, CreateMode::LOCAL);
-		//tree->SetModel(treemodel);
-		//Material* PineBark02 = cache->GetResource<Material>("Models/TorqueTrees/Materials/PineBark02.material");
-		//Material* PineNeedles02 = cache->GetResource<Material>("Models/TorqueTrees/Materials/PineNeedles02.material");
-		//Material* DeadPineNeedles02 = cache->GetResource<Material>("Models/TorqueTrees/Materials/DeadPineNeedles02.material");
-
-	    
-	
-
 
 
 		//for (int hx = ix - sz; hx <= ix + sz; ++hx)

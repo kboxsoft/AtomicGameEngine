@@ -5,6 +5,13 @@
 
 #include <Atomic/Graphics/StaticModel.h>
 #include <Atomic/Graphics/Drawable.h>
+#include <Atomic/Resource/Image.h>
+
+//Number of positions to snapshot in the yaw axis
+#define IMPOSTOR_YAW_ANGLES 16
+
+//Number of positions to snapshot in the pitch axis
+#define IMPOSTOR_PITCH_ANGLES 16
 
 namespace Atomic
 {
@@ -113,6 +120,12 @@ private:
     void UpdateLodLevels(const FrameInfo& frame);
     /// Update wind.
     void UpdateWind();
+	/// Create billboard LOD
+	void CreateBillboard();
+	/// Get the bounding radius from the bounding box (used by CreateBillboard)
+	float boundingRadiusFromAABB(BoundingBox& bb);
+	/// makeCeil for bounding radius calc
+	Vector3 makeCeil(Vector3& first, Vector3& second);
 
 private:
     /// Clone request from user.
@@ -138,6 +151,8 @@ private:
     Vector<StaticModelGeometryDataEx> geometryDataEx_;
     /// Number of active LOD switching animations.
     int numLodSwitchAnimations_ = 0;
+
+	Image* billboardImage_;
 };
 
 }
