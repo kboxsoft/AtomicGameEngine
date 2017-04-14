@@ -739,17 +739,18 @@ namespace AtomicEditor
 
 		forest->AddChild(treenode);
 		StaticModelEx *tree = new StaticModelEx(context_);
-		Model *treemodel1 = cache->GetResource<Model>("Models/Bucket1_Bucket1.mdl");
-		Model *treemodel2 = cache->GetResource<Model>("Models/Crate.mdl");
+		SharedPtr<Model> treemodel1(cache->GetResource<Model>("Models/Crate.mdl"));
+		SharedPtr<Model> treemodel2(cache->GetResource<Model>("Models/Bucket1_Bucket1.mdl"));
 		treenode->AddComponent(tree, 0, CreateMode::LOCAL);
 		
 
-		Geometry* lod1 = treemodel1->GetGeometry(0, 1);
-		Geometry* lod2 = treemodel2->GetGeometry(0, 1);
+		SharedPtr<Geometry> lod1(treemodel1->GetGeometry(0, 1));
+		SharedPtr<Geometry> lod2(treemodel2->GetGeometry(0, 1));
 		lod1->SetLodDistance(0);
 		lod2->SetLodDistance(10);
 
-		Model *lodtree = treemodel1;
+		SharedPtr<Model> lodtree(treemodel1->Clone());
+
 		lodtree->SetNumGeometries(1);
 		lodtree->SetNumGeometryLodLevels(0, 2);
 		lodtree->SetGeometry(0, 0, lod1);
@@ -757,8 +758,9 @@ namespace AtomicEditor
 	
 		tree->SetModel(lodtree);
 
-		Material *mat = cache->GetResource<Material>("Materials/Crate.material");
+		SharedPtr<Material> mat (cache->GetResource<Material>("Materials/Crate.material"));
 		tree->SetMaterial(mat);
+		tree->SetDrawDistance(300);
 		treenode->SetPosition(Vector3(x, y+2, z));
 
 

@@ -354,6 +354,11 @@ namespace Atomic
             lodDistance_ = newLodDistance;
             CalculateLodLevels(frame.timeStep_);
         }
+
+		////TESTING ROTATIONS FOR BILLBOARD
+		//if (lodDistance_ > 10) {
+		//	GetNode()->SetWorldRotation(frame.camera_->GetFaceCameraRotation(GetNode()->GetPosition(), GetNode()->GetRotation(), Atomic::FC_ROTATE_XYZ));
+		//}
     }
 
     void StaticModelEx::UpdateWind()
