@@ -18,6 +18,9 @@
 #include <Atomic/Graphics/Material.h>
 #include <Atomic/Resource/ResourceCache.h>
 #include <Atomic/Graphics/Octree.h>
+#include <Atomic/IO/Log.h>
+#include <ToolCore/Project/Project.h>
+#include <ToolCore/ToolSystem.h>
 namespace Atomic
 {
     extern const char* GEOMETRY_CATEGORY;
@@ -99,6 +102,7 @@ namespace Atomic
             SetMaterialImpl(i, material);
             SetBatchMaterial(i);
         }
+		CreateBillboard();
     }
 
     bool StaticModelEx::SetMaterial(unsigned index, Material* material)
@@ -408,9 +412,16 @@ namespace Atomic
         return magnitude.Length();
     }
 
-    void StaticModelEx::CreateBillboard() {
-        unsigned billboardSize_ = 4096;
-        ResourceCache* cache = GetSubsystem<ResourceCache>();
+	void StaticModelEx::CreateBillboard() {
+		ResourceCache* cache = GetSubsystem<ResourceCache>();
+		Image* cached = cache->GetResource<Image>(GetModel()->GetName() + ".png");
+		if (cached)
+		{
+				billboardImage_ = cached;
+		        return;
+	    }
+
+		unsigned billboardSize_ = 4096;
         Renderer *renderer = GetSubsystem<Renderer>();
         Scene* m_p3DViewportScene = new Scene(context_);
         m_p3DViewportScene->CreateComponent<Octree>();
@@ -435,23 +446,23 @@ namespace Atomic
 
         // Create camera viewport
         Node* m_p3DViewportCameraNode = m_p3DViewportScene->CreateChild();
-        Camera* _pCamera;
+        Camera* billboardCam;
 
         if (m_p3DViewportCameraNode != nullptr)
-            _pCamera = m_p3DViewportCameraNode->CreateComponent<Camera>();
+            billboardCam = m_p3DViewportCameraNode->CreateComponent<Camera>();
 
         // Create rendertarget
-        Texture2D* m_p3DViewportRenderTexture = new Texture2D(context_);
-        m_p3DViewportRenderTexture->SetSize(billboardSize_, billboardSize_, Graphics::GetRGBAFormat(), TEXTURE_RENDERTARGET);
-        m_p3DViewportRenderTexture->SetFilterMode(FILTER_TRILINEAR);
+        Texture2D* billboardRenderTex = new Texture2D(context_);
+        billboardRenderTex->SetSize(billboardSize_, billboardSize_, Graphics::GetRGBAFormat(), TEXTURE_RENDERTARGET);
+        billboardRenderTex->SetFilterMode(FILTER_TRILINEAR);
 
-        RenderSurface* _pRenderSurface = m_p3DViewportRenderTexture->GetRenderSurface();
+        RenderSurface* billboardSurface = billboardRenderTex->GetRenderSurface();
 
-        if (_pRenderSurface == nullptr)
+        if (billboardSurface == nullptr)
             return;
 
-        Viewport* _pViewport = (new Viewport(context_, m_p3DViewportScene, m_p3DViewportCameraNode->GetComponent<Camera>()));
-        SharedPtr<RenderPath> treepath = _pViewport->GetRenderPath()->Clone();
+        Viewport* billboardViewport = (new Viewport(context_, m_p3DViewportScene, m_p3DViewportCameraNode->GetComponent<Camera>()));
+        SharedPtr<RenderPath> billboardpath = billboardViewport->GetRenderPath()->Clone();
 
         RenderTargetInfo target;
         target.enabled_ = true;
@@ -463,55 +474,46 @@ namespace Atomic
         target.filtered_ = false;
         target.persistent_ = true;
 
-        treepath->AddRenderTarget(target);
+		billboardpath->AddRenderTarget(target);
+
+        billboardViewport->SetRenderPath(billboardpath);
+
+        billboardSurface->SetViewport(0, billboardViewport);
+        billboardSurface->SetUpdateMode(RenderSurfaceUpdateMode::SURFACE_MANUALUPDATE);
 
 
+        Node* billboardNode = m_p3DViewportScene->CreateChild();
 
+        StaticModel* billboardModel = billboardNode->CreateComponent<StaticModel>();
+        billboardModel->SetModel(GetModel());
+        billboardModel->SetCastShadows(false);
+        //billboardModel->ApplyMaterialList();
+        billboardModel->SetMaterial(GetMaterial());
 
-        _pViewport->SetRenderPath(treepath);
-
-        _pRenderSurface->SetViewport(0, _pViewport);
-        _pRenderSurface->SetUpdateMode(RenderSurfaceUpdateMode::SURFACE_MANUALUPDATE);
-
-
-        Node* m_pModelNode = m_p3DViewportScene->CreateChild();
-
-        StaticModel* _pStaticModel = m_pModelNode->CreateComponent<StaticModel>();
-
-        _pStaticModel->SetModel(model_);
-        _pStaticModel->SetCastShadows(false);
-        //_pStaticModel->ApplyMaterialList();
-        Material* treemat = cache->GetResource<Material>("Materials/Optimized Bark Material.material");
-        _pStaticModel->SetMaterial(treemat);
-
-        BoundingBox boundingbox = _pStaticModel->GetBoundingBox();
+        BoundingBox boundingbox = billboardModel->GetBoundingBox();
         Vector3 entityCenter = boundingbox.Center();
         float entityRadius = boundingRadiusFromAABB(boundingbox);
         float entityDiameter = 2.0f * entityRadius;
-
-
 
         //Set up camera FOV
         float objDist = entityRadius;
         float nearDist = objDist - (entityRadius + 1);
         float farDist = objDist + (entityRadius + 1);
 
-        if (_pCamera != nullptr)
+        if (billboardCam != nullptr)
         {
 
-            _pCamera->SetLodBias(1000.0f);
-            _pCamera->SetAspectRatio(1.0f);
+            billboardCam->SetLodBias(1000.0f);
+            billboardCam->SetAspectRatio(1.0f);
 
-            _pCamera->SetFov(Atan(entityDiameter / objDist));
-            _pCamera->SetFarClip(farDist);
-            _pCamera->SetNearClip(nearDist);
-            _pCamera->SetOrthographic(true);
+            billboardCam->SetFov(Atan(entityDiameter / objDist));
+            billboardCam->SetFarClip(farDist);
+            billboardCam->SetNearClip(nearDist);
+            billboardCam->SetOrthographic(true);
         }
 
-
-        m_pModelNode->SetPosition(-entityCenter + Vector3(0, 0, 0));
-        m_pModelNode->SetRotation(Quaternion(0.0f, 0.0f, 0.0f));
-
+        billboardNode->SetPosition(-entityCenter + Vector3(0, 0, 0));
+        billboardNode->SetRotation(Quaternion(0.0f, 0.0f, 0.0f));
 
         if (true) {
             //If this has not been pre-rendered, do so now
@@ -532,48 +534,53 @@ namespace Atomic
                     m_p3DViewportCameraNode->Translate(Vector3(0, 0, -objDist), TS_LOCAL);
 
                     //Render the impostor
-                    int width = _pRenderSurface->GetWidth() / IMPOSTOR_YAW_ANGLES;
-                    int height = _pRenderSurface->GetHeight() / IMPOSTOR_PITCH_ANGLES;
+                    int width = billboardSurface->GetWidth() / IMPOSTOR_YAW_ANGLES;
+                    int height = billboardSurface->GetHeight() / IMPOSTOR_PITCH_ANGLES;
                     int left = (float)(i)* width;
                     int top = (float)(o)* height;
                     IntRect region = IntRect(left, top, left + width, top + height);
-                    _pViewport->SetRect(region);
-                    //renderer->SetViewport(0, _pViewport);
-                    _pRenderSurface->QueueUpdate();
+                    billboardViewport->SetRect(region);
+                    //renderer->SetViewport(0, billboardViewport);
+                    billboardSurface->QueueUpdate();
                     renderer->Update(1.0f);
                     renderer->Render();
                 }
             }
         }
 
-
-
         // Image saving
         billboardImage_ = new Image(context_);
 
-        unsigned char* _ImageData = new unsigned char[m_p3DViewportRenderTexture->GetDataSize(billboardSize_, billboardSize_)];
-        m_p3DViewportRenderTexture->GetData(0, _ImageData);
+        unsigned char* imageData = new unsigned char[billboardRenderTex->GetDataSize(billboardSize_, billboardSize_)];
+        billboardRenderTex->GetData(0, imageData);
 
-        int channels = m_p3DViewportRenderTexture->GetComponents();
+        int channels = billboardRenderTex->GetComponents();
         Color transparentcolor = Color::BLACK; //Black is transparent
 
         for (int i = 0; i < billboardSize_ *billboardSize_; i++) {
             //If pixel is the color we want to use as transparent in the imposter, set its alpha to 0
-            if (Color(_ImageData[4 * i], _ImageData[4 * i + 1], _ImageData[4 * i + 2]) == transparentcolor) {
-                _ImageData[4 * i + 3] = 0; //ALPHA
+            if (Color(imageData[4 * i], imageData[4 * i + 1], imageData[4 * i + 2]) == transparentcolor) {
+				imageData[4 * i + 3] = 0; //ALPHA
             }
             else {
-                _ImageData[4 * i + 3] = 255;
+				imageData[4 * i + 3] = 255;
             }
         }
 
+		ToolCore::ToolSystem* toolsystem = GetSubsystem<ToolCore::ToolSystem>();
+		String myresources = "";
+		if (toolsystem) {
+			ToolCore::Project* project = toolsystem->GetProject();
+			myresources = project->GetProjectPath() + "Resources/";
+		}
+
         billboardImage_->SetSize(billboardSize_, billboardSize_, channels);
-        billboardImage_->SetData(_ImageData);
+        billboardImage_->SetData(imageData);
+		String name = model_->GetName() + ".png";
+        billboardImage_->SavePNG(myresources + name);
+        ATOMIC_LOGDEBUG("Wrote " + myresources + name + "test.png");
 
-        //billboardImage_->SavePNG("test.png");
-        //ATOMIC_LOGDEBUG("Wrote " + name + "test.png");
-
-        delete[] _ImageData;
+        delete[] imageData;
     }
 
 }

@@ -750,7 +750,7 @@ namespace AtomicEditor
 		lod2->SetLodDistance(10);
 
 		SharedPtr<Model> lodtree(treemodel1->Clone());
-
+		lodtree->SetName("Crate.mdl");
 		lodtree->SetNumGeometries(1);
 		lodtree->SetNumGeometryLodLevels(0, 2);
 		lodtree->SetGeometry(0, 0, lod1);
