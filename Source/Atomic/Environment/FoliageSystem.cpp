@@ -234,12 +234,12 @@ namespace Atomic
 					}
 				}
 
-				////trees create new/missing
-				for (PODVector<IntVector2> ::Iterator i = activeset.Begin(); i != activeset.End(); ++i) {
-					if (!treeTreeBillboards_.Contains(i->Data())) {
-						DrawTrees(i->Data(), cellsize);
-					}
-				}
+				//////trees create new/missing
+				//for (PODVector<IntVector2> ::Iterator i = activeset.Begin(); i != activeset.End(); ++i) {
+				//	if (!treeTreeBillboards_.Contains(i->Data())) {
+				//		DrawTrees(i->Data(), cellsize);
+				//	}
+				//}
 
 				//DrawGrass(sector, cellsize);
 				//DrawGrass(sector + IntVector2(1,1), cellsize);

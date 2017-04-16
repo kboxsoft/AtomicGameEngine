@@ -339,12 +339,12 @@ namespace AtomicEditor
 			else if (mode_ == TerrainEditMode::FLATTEN) {
 				ApplyHeightBrush(terrain_, heightmap, nullptr, cursorPosition_.x_, cursorPosition_.z_, radius, flattenHeight_, smoothpower, brushHardness_, false, dt);
 			}
-			//else if (mode_ == TerrainEditMode::PAINT) {
-			//	ApplyBlendBrush(terrain_, heightmap, colorMap_, nullptr, cursorPosition_.x_, cursorPosition_.z_, radius, max, paintpower, brushHardness_, paintLayer_, false, dt);
-			//}
 			else if (mode_ == TerrainEditMode::PAINT) {
-				DrawObject(terrain_, heightmap, nullptr, cursorPosition_.x_, cursorPosition_.y_, cursorPosition_.z_, radius, max, paintpower, brushHardness_, paintLayer_, false, dt);
+				ApplyBlendBrush(terrain_, heightmap, colorMap_, nullptr, cursorPosition_.x_, cursorPosition_.z_, radius, max, paintpower, brushHardness_, paintLayer_, false, dt);
 			}
+			//else if (mode_ == TerrainEditMode::PAINT) {
+			//	DrawObject(terrain_, heightmap, nullptr, cursorPosition_.x_, cursorPosition_.y_, cursorPosition_.z_, radius, max, paintpower, brushHardness_, paintLayer_, false, dt);
+			//}
 
 			if (mode_ != TerrainEditMode::PAINT && mode_ != TerrainEditMode::OBJECTS) {
 				terrain_->ApplyHeightMap();
@@ -737,31 +737,102 @@ namespace AtomicEditor
 		//treenode->SetPosition(Vector3(x, y, z));
 
 
-		forest->AddChild(treenode);
-		StaticModelEx *tree = new StaticModelEx(context_);
-		SharedPtr<Model> treemodel1(cache->GetResource<Model>("Models/Crate.mdl"));
-		SharedPtr<Model> treemodel2(cache->GetResource<Model>("Models/Bucket1_Bucket1.mdl"));
-		treenode->AddComponent(tree, 0, CreateMode::LOCAL);
-		
+		//forest->AddChild(treenode);
+		//StaticModelEx *tree = new StaticModelEx(context_);
+		//SharedPtr<Model> treemodel1(cache->GetResource<Model>("Models/Crate.mdl"));
+		//SharedPtr<Model> treemodel2(cache->GetResource<Model>("Models/Bucket1_Bucket1.mdl"));
+		//treenode->AddComponent(tree, 0, CreateMode::LOCAL);
+		//
 
-		SharedPtr<Geometry> lod1(treemodel1->GetGeometry(0, 1));
-		SharedPtr<Geometry> lod2(treemodel2->GetGeometry(0, 1));
-		lod1->SetLodDistance(0);
-		lod2->SetLodDistance(10);
+		//SharedPtr<Geometry> lod1(treemodel1->GetGeometry(0, 1));
+		//SharedPtr<Geometry> lod2(treemodel2->GetGeometry(0, 1));
+		//lod1->SetLodDistance(0);
+		//lod2->SetLodDistance(10);
 
-		SharedPtr<Model> lodtree(treemodel1->Clone());
-		lodtree->SetName("Crate.mdl");
-		lodtree->SetNumGeometries(1);
-		lodtree->SetNumGeometryLodLevels(0, 2);
-		lodtree->SetGeometry(0, 0, lod1);
-		lodtree->SetGeometry(0, 1, lod2);
+		//SharedPtr<Model> lodtree(treemodel1->Clone());
+		//lodtree->SetName("Crate.mdl");
+		//lodtree->SetNumGeometries(1);
+		//lodtree->SetNumGeometryLodLevels(0, 2);
+		//lodtree->SetGeometry(0, 0, lod1);
+		//lodtree->SetGeometry(0, 1, lod2);
 	
-		tree->SetModel(lodtree);
+		//tree->SetModel(lodtree);
 
-		SharedPtr<Material> mat (cache->GetResource<Material>("Materials/Crate.material"));
+		//SharedPtr<Material> mat (cache->GetResource<Material>("Materials/Crate.material"));
+		//tree->SetMaterial(mat);
+		//tree->SetDrawDistance(300);
+		//treenode->SetPosition(Vector3(x, y+2, z));
+
+
+		forest->AddChild(treenode);
+		StaticModel *tree = new StaticModel(context_);
+		treenode->AddComponent(tree, 0, CreateMode::LOCAL);
+
+		const unsigned numVertices = 4;
+
+		float vertexData[]{
+			// Position             Normal                    Texture
+			-0.5f, -0.5f,  0.5f,     0.0f,  1.0f,  0.0f,      0.0f, 0.0f,
+			-0.5f, 0.5f,  0.5f,     0.0f,  1.0f,  0.0f,      1.0f, 0.0f,
+			0.5f, 0.5f,  0.5f,     0.0f,  1.0f,  0.0f,       1.0f, 1.0f,
+			0.5f,  -0.5f,  0.5f,     0.0f,  1.0f,  0.0f,       0.0f, 1.0f
+		};
+
+		unsigned short indexData[]{
+			0, 1, 2,
+			3, 0, 2
+		};
+
+		SharedPtr<Model> treemodel1(new Model(context_));
+		SharedPtr<VertexBuffer> vb(new VertexBuffer(context_));
+		SharedPtr<IndexBuffer> ib(new IndexBuffer(context_));
+		SharedPtr<Geometry> treegeom1(new Geometry(context_));
+		// Shadowed buffer needed for raycasts to work, and so that data can be automatically restored on device loss
+		vb->SetShadowed(true);
+		// We could use the "legacy" element bitmask to define elements for more compact code, but let's demonstrate
+		// defining the vertex elements explicitly to allow any element types and order
+		PODVector<VertexElement> elements;
+		elements.Push(VertexElement(TYPE_VECTOR3, SEM_POSITION));
+		elements.Push(VertexElement(TYPE_VECTOR3, SEM_NORMAL));
+		elements.Push(VertexElement(TYPE_VECTOR2, SEM_TEXCOORD));
+		vb->SetSize(numVertices, elements);
+		vb->SetData(vertexData);
+
+		ib->SetShadowed(true);
+		ib->SetSize(6, false);
+		ib->SetData(indexData);
+
+		treegeom1->SetVertexBuffer(0, vb);
+		treegeom1->SetIndexBuffer(ib);
+		treegeom1->SetDrawRange(TRIANGLE_LIST, 0, 6);
+		treegeom1->SetLodDistance(0);
+
+		treemodel1->SetNumGeometries(1);
+		treemodel1->SetGeometry(0, 0, treegeom1);
+		treemodel1->SetBoundingBox(BoundingBox(Vector3(-0.5f, -0.5f, -0.5f), Vector3(0.5f, 0.5f, 0.5f)));
+
+		// Though not necessary to render, the vertex & index buffers must be listed in the model so that it can be saved properly
+		Vector<SharedPtr<VertexBuffer>> vertexBuffers;
+		Vector<SharedPtr<IndexBuffer>> indexBuffers;
+		vertexBuffers.Push(vb);
+		indexBuffers.Push(ib);
+		// Morph ranges could also be not defined. Here we simply define a zero range (no morphing) for the vertex buffer
+		PODVector<unsigned> morphRangeStarts;
+		PODVector<unsigned> morphRangeCounts;
+		morphRangeStarts.Push(0);
+		morphRangeCounts.Push(0);
+		treemodel1->SetVertexBuffers(vertexBuffers, morphRangeStarts, morphRangeCounts);
+		treemodel1->SetIndexBuffers(indexBuffers);
+		treemodel1->SetName("CustomModel");
+		//SharedPtr<Model> lodtree(treemodel1->Clone());
+		//lodtree->SetName("CustomModel");
+		//lodtree->SetNumGeometryLodLevels(0, 1);
+		//treemodel1->SetNumGeometryLodLevels(0, 1);
+		tree->SetModel(treemodel1);
+		SharedPtr<Material> mat(cache->GetResource<Material>("Bostich/Materials/Material.material"));
 		tree->SetMaterial(mat);
 		tree->SetDrawDistance(300);
-		treenode->SetPosition(Vector3(x, y+2, z));
+		treenode->SetPosition(Vector3(x, y + 2, z));
 
 
 		//for (int hx = ix - sz; hx <= ix + sz; ++hx)

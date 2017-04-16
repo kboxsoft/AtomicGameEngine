@@ -102,7 +102,7 @@ namespace Atomic
             SetMaterialImpl(i, material);
             SetBatchMaterial(i);
         }
-		CreateBillboard();
+		//CreateBillboard();
     }
 
     bool StaticModelEx::SetMaterial(unsigned index, Material* material)
