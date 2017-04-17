@@ -21,6 +21,10 @@
 #include <Atomic/IO/Log.h>
 #include <ToolCore/Project/Project.h>
 #include <ToolCore/ToolSystem.h>
+
+#include <Atomic/Graphics/VertexBuffer.h>
+#include <Atomic/Graphics/IndexBuffer.h>
+
 namespace Atomic
 {
     extern const char* GEOMETRY_CATEGORY;
@@ -412,7 +416,62 @@ namespace Atomic
         return magnitude.Length();
     }
 
-	void StaticModelEx::CreateBillboard() {
+	SharedPtr<Geometry> StaticModelEx::CreateQuadGeom() {
+
+		const unsigned numVertices = 4;
+		const unsigned numIndices = 6;
+
+		float vertexData[]{
+			// Position             Normal                    Texture
+			-0.5f, -0.5f,  0.5f,     0.0f,  1.0f,  0.0f,      0.0f, 0.0f,
+			-0.5f, 0.5f,  0.5f,     0.0f,  1.0f,  0.0f,      1.0f, 0.0f,
+			0.5f, 0.5f,  0.5f,     0.0f,  1.0f,  0.0f,       1.0f, 1.0f,
+			0.5f,  -0.5f,  0.5f,     0.0f,  1.0f,  0.0f,       0.0f, 1.0f
+		};
+
+		unsigned short indexData[]{
+			0, 1, 2,
+			3, 0, 2
+		};
+
+		SharedPtr<VertexBuffer> vb(new VertexBuffer(context_));
+		SharedPtr<IndexBuffer> ib(new IndexBuffer(context_));
+		SharedPtr<Geometry> geom(new Geometry(context_));
+		// Shadowed buffer needed for raycasts to work, and so that data can be automatically restored on device loss
+		vb->SetShadowed(true);
+		// We could use the "legacy" element bitmask to define elements for more compact code, but let's demonstrate
+		// defining the vertex elements explicitly to allow any element types and order
+		PODVector<VertexElement> elements;
+		elements.Push(VertexElement(TYPE_VECTOR3, SEM_POSITION));
+		elements.Push(VertexElement(TYPE_VECTOR3, SEM_NORMAL));
+		elements.Push(VertexElement(TYPE_VECTOR2, SEM_TEXCOORD));
+		vb->SetSize(numVertices, elements);
+		vb->SetData(vertexData);
+
+		ib->SetShadowed(true);
+		ib->SetSize(numIndices, false);
+		ib->SetData(indexData);
+
+		geom->SetVertexBuffer(0, vb);
+		geom->SetIndexBuffer(ib);
+		geom->SetDrawRange(TRIANGLE_LIST, 0, numIndices);
+		geom->SetLodDistance(0);
+
+		return geom;
+
+	}
+
+	SharedPtr<Texture2D> StaticModelEx::CreateBillboardTexture()
+	{
+		SharedPtr<Texture2D> tex(new Texture2D(context_));
+		tex->SetFilterMode(TextureFilterMode::FILTER_NEAREST);
+		tex->SetNumLevels(1);
+		tex->SetSize(IMPOSTER_SIZE, IMPOSTER_SIZE, Graphics::GetRGBAFormat(), TEXTURE_STATIC);
+		tex->SetData(billboardImage_, true);
+		return tex;
+	}
+
+	void StaticModelEx::CreateBillboardImage() {
 		ResourceCache* cache = GetSubsystem<ResourceCache>();
 		Image* cached = cache->GetResource<Image>(GetModel()->GetName() + ".png");
 		if (cached)
@@ -421,7 +480,7 @@ namespace Atomic
 		        return;
 	    }
 
-		unsigned billboardSize_ = 4096;
+		
         Renderer *renderer = GetSubsystem<Renderer>();
         Scene* m_p3DViewportScene = new Scene(context_);
         m_p3DViewportScene->CreateComponent<Octree>();
@@ -453,7 +512,7 @@ namespace Atomic
 
         // Create rendertarget
         Texture2D* billboardRenderTex = new Texture2D(context_);
-        billboardRenderTex->SetSize(billboardSize_, billboardSize_, Graphics::GetRGBAFormat(), TEXTURE_RENDERTARGET);
+        billboardRenderTex->SetSize(IMPOSTER_SIZE, IMPOSTER_SIZE, Graphics::GetRGBAFormat(), TEXTURE_RENDERTARGET);
         billboardRenderTex->SetFilterMode(FILTER_TRILINEAR);
 
         RenderSurface* billboardSurface = billboardRenderTex->GetRenderSurface();
@@ -551,13 +610,13 @@ namespace Atomic
         // Image saving
         billboardImage_ = new Image(context_);
 
-        unsigned char* imageData = new unsigned char[billboardRenderTex->GetDataSize(billboardSize_, billboardSize_)];
+        unsigned char* imageData = new unsigned char[billboardRenderTex->GetDataSize(IMPOSTER_SIZE, IMPOSTER_SIZE)];
         billboardRenderTex->GetData(0, imageData);
 
         int channels = billboardRenderTex->GetComponents();
         Color transparentcolor = Color::BLACK; //Black is transparent
 
-        for (int i = 0; i < billboardSize_ *billboardSize_; i++) {
+        for (int i = 0; i < IMPOSTER_SIZE * IMPOSTER_SIZE; i++) {
             //If pixel is the color we want to use as transparent in the imposter, set its alpha to 0
             if (Color(imageData[4 * i], imageData[4 * i + 1], imageData[4 * i + 2]) == transparentcolor) {
 				imageData[4 * i + 3] = 0; //ALPHA
@@ -574,7 +633,7 @@ namespace Atomic
 			myresources = project->GetProjectPath() + "Resources/";
 		}
 
-        billboardImage_->SetSize(billboardSize_, billboardSize_, channels);
+        billboardImage_->SetSize(IMPOSTER_SIZE, IMPOSTER_SIZE, channels);
         billboardImage_->SetData(imageData);
 		String name = model_->GetName() + ".png";
         billboardImage_->SavePNG(myresources + name);
@@ -582,5 +641,17 @@ namespace Atomic
 
         delete[] imageData;
     }
+
+	void StaticModelEx::AddImposter() {
+		SharedPtr<Geometry> imposter = CreateQuadGeom();
+		CreateBillboardImage();
+		Texture2D* tex = CreateBillboardTexture();
+		Material* mat = new Material(context_);
+		imposter->SetLodDistance(10);
+		//unsigned levels = model_->GetNumGeometryLodLevels(0) + 1;
+		model_->SetNumGeometryLodLevels(0,2);
+		model_->SetGeometry(0, 1, imposter);
+		
+	}
 
 }

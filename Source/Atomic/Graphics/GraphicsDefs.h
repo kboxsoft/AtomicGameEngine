@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2008-2016 the Urho3D project.
+// Copyright (c) 2008-2017 the Urho3D project.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -48,7 +48,7 @@ enum PrimitiveType
     TRIANGLE_FAN
 };
 
-/// %Geometry type.
+/// %Geometry type for vertex shader geometry variations.
 enum GeometryType
 {
     GEOM_STATIC = 0,
@@ -56,11 +56,13 @@ enum GeometryType
     GEOM_INSTANCED = 2,
     GEOM_BILLBOARD = 3,
     GEOM_DIRBILLBOARD = 4,
-	GEOM_TREEBILLBOARD = 5,
-    GEOM_TRAIL_FACE_CAMERA = 6,
-    GEOM_TRAIL_BONE = 7,
-    GEOM_STATIC_NOINSTANCING = 8,
-    MAX_GEOMETRYTYPES = 8,
+    GEOM_TRAIL_BONE = 6,
+    // This is not a real geometry type for VS, but used to mark objects that do not desire to be instanced
+    GEOM_STATIC_NOINSTANCING = 7,
+    GEOM_TREEBILLBOARD = 8,
+    MAX_GEOMETRYTYPES = 9,
+
+
 };
 
 /// Blending mode.
@@ -230,6 +232,7 @@ enum TextureFilterMode
     FILTER_BILINEAR,
     FILTER_TRILINEAR,
     FILTER_ANISOTROPIC,
+    FILTER_NEAREST_ANISOTROPIC,
     FILTER_DEFAULT,
     MAX_FILTERMODES
 };
@@ -422,6 +425,10 @@ extern ATOMIC_API const StringHash PSP_LIGHTMATRICES;
 extern ATOMIC_API const StringHash PSP_VSMSHADOWPARAMS;
 extern ATOMIC_API const StringHash PSP_ROUGHNESS;
 extern ATOMIC_API const StringHash PSP_METALLIC;
+extern ATOMIC_API const StringHash PSP_LIGHTRAD;
+extern ATOMIC_API const StringHash PSP_LIGHTLENGTH;
+extern ATOMIC_API const StringHash PSP_ZONEMIN;
+extern ATOMIC_API const StringHash PSP_ZONEMAX;
 
 // Scale calculation from bounding box diagonal.
 extern ATOMIC_API const Vector3 DOT_SCALE;

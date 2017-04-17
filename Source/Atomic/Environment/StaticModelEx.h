@@ -6,12 +6,16 @@
 #include <Atomic/Graphics/StaticModel.h>
 #include <Atomic/Graphics/Drawable.h>
 #include <Atomic/Resource/Image.h>
+#include <Atomic/Graphics/CustomGeometry.h>
+#include <Atomic/Graphics/Texture2D.h>
 
 //Number of positions to snapshot in the yaw axis
 #define IMPOSTOR_YAW_ANGLES 4
 
 //Number of positions to snapshot in the pitch axis
 #define IMPOSTOR_PITCH_ANGLES 4
+
+#define IMPOSTER_SIZE 4096
 
 namespace Atomic
 {
@@ -90,6 +94,8 @@ public:
     /// Return materials attribute.
     const ResourceRefList& GetMaterialsAttr() const;
 
+	void AddImposter();
+
 private:
     /// Handle scene being assigned. This may happen several times during the component's lifetime. Scene-wide subsystems and events are subscribed to here.
     virtual void OnSceneSet(Scene* scene) override;
@@ -120,12 +126,16 @@ private:
     void UpdateLodLevels(const FrameInfo& frame);
     /// Update wind.
     void UpdateWind();
-	/// Create billboard LOD
-	void CreateBillboard();
+	/// Create billboard LOD image 
+	void CreateBillboardImage();
+	/// Create billboard LOD image 
+	SharedPtr<Texture2D> CreateBillboardTexture();
 	/// Get the bounding radius from the bounding box (used by CreateBillboard)
 	float boundingRadiusFromAABB(BoundingBox& bb);
 	/// makeCeil for bounding radius calc
 	Vector3 makeCeil(Vector3& first, Vector3& second);
+	// Create quad to draw billboard
+	SharedPtr<Geometry> CreateQuadGeom();
 
 private:
     /// Clone request from user.
