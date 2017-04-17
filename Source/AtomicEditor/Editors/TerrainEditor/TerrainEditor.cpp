@@ -749,16 +749,17 @@ namespace AtomicEditor
 		lod1->SetLodDistance(0);
 	//	lod2->SetLodDistance(10);
 
-		SharedPtr<Model> lodtree(treemodel1->Clone());
-		lodtree->SetName("Crate.mdl");
-		lodtree->SetNumGeometries(1);
-		lodtree->SetNumGeometryLodLevels(0, 2);
-		lodtree->SetGeometry(0, 0, lod1);
+		facker_ = treemodel1->Clone();
+		facker_->SetName("Crate.mdl");
+		facker_->SetNumGeometries(1);
+		facker_->SetNumGeometryLodLevels(0, 2);
+		facker_->SetGeometry(0, 0, lod1);
 	//	lodtree->SetGeometry(0, 1, lod2);
 		
-
-		tree->SetModel(lodtree);
-		tree->AddImposter();
+		SharedPtr<Geometry> geo = tree->AddImposter();
+		facker_->SetGeometry(0, 1, geo);
+		tree->SetModel(facker_);
+		///tree->AddImposter();
 
 		SharedPtr<Material> mat (cache->GetResource<Material>("Materials/Crate.material"));
 		tree->SetMaterial(mat);

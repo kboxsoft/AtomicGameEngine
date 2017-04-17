@@ -57,10 +57,11 @@ enum GeometryType
     GEOM_BILLBOARD = 3,
     GEOM_DIRBILLBOARD = 4,
     GEOM_TRAIL_BONE = 6,
+	GEOM_TRAIL_FACE_CAMERA = 7,
     // This is not a real geometry type for VS, but used to mark objects that do not desire to be instanced
-    GEOM_STATIC_NOINSTANCING = 7,
-    GEOM_TREEBILLBOARD = 8,
-    MAX_GEOMETRYTYPES = 9,
+    GEOM_STATIC_NOINSTANCING = 8,
+    GEOM_TREEBILLBOARD = 9,
+    MAX_GEOMETRYTYPES = 10
 
 
 };

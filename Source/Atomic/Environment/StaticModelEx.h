@@ -94,8 +94,8 @@ public:
     /// Return materials attribute.
     const ResourceRefList& GetMaterialsAttr() const;
 
-	void AddImposter();
-
+	SharedPtr<Geometry> AddImposter();
+	void GenerateImpostorTexture();
 private:
     /// Handle scene being assigned. This may happen several times during the component's lifetime. Scene-wide subsystems and events are subscribed to here.
     virtual void OnSceneSet(Scene* scene) override;

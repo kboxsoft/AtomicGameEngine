@@ -24,6 +24,8 @@
 
 #include <Atomic/Graphics/VertexBuffer.h>
 #include <Atomic/Graphics/IndexBuffer.h>
+#include <Atomic/Graphics/Technique.h>
+#include <Atomic/Graphics/GraphicsDefs.h>
 
 namespace Atomic
 {
@@ -642,15 +644,31 @@ namespace Atomic
         delete[] imageData;
     }
 
-	void StaticModelEx::AddImposter() {
+	SharedPtr<Geometry> StaticModelEx::AddImposter() {
 		SharedPtr<Geometry> imposter = CreateQuadGeom();
-		CreateBillboardImage();
+	/*	CreateBillboardImage();
 		Texture2D* tex = CreateBillboardTexture();
-		Material* mat = new Material(context_);
+		Material* mat = new Material(context_);*/
 		imposter->SetLodDistance(10);
 		//unsigned levels = model_->GetNumGeometryLodLevels(0) + 1;
-		model_->SetNumGeometryLodLevels(0,2);
-		model_->SetGeometry(0, 1, imposter);
+		//model_->SetNumGeometryLodLevels(0,2);
+		//model_->SetGeometry(0, 1, imposter);
+		return imposter;
+	}
+	void  StaticModelEx::GenerateImpostorTexture() {
+		CreateBillboardImage();
+		Texture2D* tex = CreateBillboardTexture();
+		
+		Material* mat = GetMaterial(); //new Material(context_);
+		
+		Technique* tech0 = new Technique(context_);
+		tech0->SetName("lod1");
+
+		mat->SetTechnique(1, tech0, 0, 10);
+		mat->SetTexture(TextureUnit::TU_DIFFUSE, tex);
+		//mat->
+		//mat->SetTexture(
+		Geometry* tmp = model_->GetGeometry(0, 1);
 		
 	}
 

@@ -128,6 +128,7 @@ namespace AtomicEditor
 		SharedPtr<Node> brushcursornode_;
 		SharedPtr<CustomGeometry> brushcursor_;
 		SharedPtr<Material> brushmat_;
+		SharedPtr<Model> facker_;
 		void BuildCursorMesh(float radius, Vector3 spacing);
 		void FileSaveHandler(StringHash eventType, VariantMap& eventData);
 
