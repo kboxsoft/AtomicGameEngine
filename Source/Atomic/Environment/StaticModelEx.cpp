@@ -78,6 +78,13 @@ namespace Atomic
 
     void StaticModelEx::SetModel(Model* model)
     {
+		 //Quick hack
+		if (model != imposterModel_)
+		{
+			fullModel_ = model;
+			imposterModel_ = MakeModel();
+		}
+
         StaticModel::SetModel(model);
 
         // Setup extra batches
@@ -357,6 +364,16 @@ namespace Atomic
         // Update LODs
         float scale = worldBoundingBox.Size().DotProduct(DOT_SCALE);
         float newLodDistance = frame.camera_->GetLodDistance(distance_, scale, lodBias_);
+
+		//Quick hack (need to fix scaled distances etc)
+		if (newLodDistance > 10 && model_ != imposterModel_)
+		{
+			SetModel(imposterModel_);
+		}
+		else if (newLodDistance < 10 && model_ == imposterModel_)
+		{
+			SetModel(fullModel_);
+		}
 
         assert(numLodSwitchAnimations_ >= 0);
         if (newLodDistance != lodDistance_ || numLodSwitchAnimations_ > 0)
@@ -644,15 +661,71 @@ namespace Atomic
         delete[] imageData;
     }
 
+	SharedPtr<Model> StaticModelEx::MakeModel() {
+		const unsigned numVertices = 4;
+
+		float vertexData[]{
+			// Position             Normal                    Texture
+			-0.5f, -0.5f,  0.5f,     0.0f,  1.0f,  0.0f,      0.0f, 0.0f,
+			-0.5f, 0.5f,  0.5f,     0.0f,  1.0f,  0.0f,      1.0f, 0.0f,
+			0.5f, 0.5f,  0.5f,     0.0f,  1.0f,  0.0f,       1.0f, 1.0f,
+			0.5f,  -0.5f,  0.5f,     0.0f,  1.0f,  0.0f,       0.0f, 1.0f
+		};
+
+		unsigned short indexData[]{
+			0, 1, 2,
+			3, 0, 2
+		};
+
+		SharedPtr<Model> quadModel(new Model(context_));
+		SharedPtr<VertexBuffer> vb(new VertexBuffer(context_));
+		SharedPtr<IndexBuffer> ib(new IndexBuffer(context_));
+		SharedPtr<Geometry> quadgeom(new Geometry(context_));
+		// Shadowed buffer needed for raycasts to work, and so that data can be automatically restored on device loss
+		vb->SetShadowed(true);
+		// We could use the "legacy" element bitmask to define elements for more compact code, but let's demonstrate
+		// defining the vertex elements explicitly to allow any element types and order
+		PODVector<VertexElement> elements;
+		elements.Push(VertexElement(TYPE_VECTOR3, SEM_POSITION));
+		elements.Push(VertexElement(TYPE_VECTOR3, SEM_NORMAL));
+		elements.Push(VertexElement(TYPE_VECTOR2, SEM_TEXCOORD));
+		vb->SetSize(numVertices, elements);
+		vb->SetData(vertexData);
+
+		ib->SetShadowed(true);
+		ib->SetSize(6, false);
+		ib->SetData(indexData);
+
+		quadgeom->SetVertexBuffer(0, vb);
+		quadgeom->SetIndexBuffer(ib);
+		quadgeom->SetDrawRange(TRIANGLE_LIST, 0, 6);
+		quadgeom->SetLodDistance(0);
+
+		quadModel->SetNumGeometries(1);
+		quadModel->SetGeometry(0, 0, quadgeom);
+		quadModel->SetBoundingBox(BoundingBox(Vector3(-0.5f, -0.5f, -0.5f), Vector3(0.5f, 0.5f, 0.5f)));
+
+		// Though not necessary to render, the vertex & index buffers must be listed in the model so that it can be saved properly
+		Vector<SharedPtr<VertexBuffer>> vertexBuffers;
+		Vector<SharedPtr<IndexBuffer>> indexBuffers;
+		vertexBuffers.Push(vb);
+		indexBuffers.Push(ib);
+		// Morph ranges could also be not defined. Here we simply define a zero range (no morphing) for the vertex buffer
+		PODVector<unsigned> morphRangeStarts;
+		PODVector<unsigned> morphRangeCounts;
+		morphRangeStarts.Push(0);
+		morphRangeCounts.Push(0);
+		quadModel->SetVertexBuffers(vertexBuffers, morphRangeStarts, morphRangeCounts);
+		quadModel->SetIndexBuffers(indexBuffers);
+		quadModel->SetName("QuadModel");
+
+
+		return quadModel;
+
+	}
+
 	SharedPtr<Geometry> StaticModelEx::AddImposter() {
 		SharedPtr<Geometry> imposter = CreateQuadGeom();
-	/*	CreateBillboardImage();
-		Texture2D* tex = CreateBillboardTexture();
-		Material* mat = new Material(context_);*/
-		imposter->SetLodDistance(10);
-		//unsigned levels = model_->GetNumGeometryLodLevels(0) + 1;
-		//model_->SetNumGeometryLodLevels(0,2);
-		//model_->SetGeometry(0, 1, imposter);
 		return imposter;
 	}
 	void  StaticModelEx::GenerateImpostorTexture() {
@@ -661,15 +734,10 @@ namespace Atomic
 		
 		Material* mat = GetMaterial(); //new Material(context_);
 		
-		Technique* tech0 = new Technique(context_);
-		tech0->SetName("lod1");
-
-		mat->SetTechnique(1, tech0, 0, 10);
-		mat->SetTexture(TextureUnit::TU_DIFFUSE, tex);
-		//mat->
-		//mat->SetTexture(
+		mat->SetTexture(TextureUnit::TU_CUSTOM1, tex);
 		Geometry* tmp = model_->GetGeometry(0, 1);
-		
-	}
+
+
+	} 
 
 }

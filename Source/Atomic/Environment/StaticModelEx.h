@@ -95,7 +95,10 @@ public:
     const ResourceRefList& GetMaterialsAttr() const;
 
 	SharedPtr<Geometry> AddImposter();
+
 	void GenerateImpostorTexture();
+
+	SharedPtr<Model> MakeModel();
 private:
     /// Handle scene being assigned. This may happen several times during the component's lifetime. Scene-wide subsystems and events are subscribed to here.
     virtual void OnSceneSet(Scene* scene) override;
@@ -163,6 +166,10 @@ private:
     int numLodSwitchAnimations_ = 0;
 
 	Image* billboardImage_;
+
+	SharedPtr<Model> fullModel_;
+	SharedPtr<Model> imposterModel_;
+
 };
 
 }
