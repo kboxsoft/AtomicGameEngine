@@ -55,14 +55,12 @@ StringHash::StringHash(const String& str) :
     RegisterSignificantString(str, value_);
 #endif
 }
-
-unsigned StringHash::Calculate(const char* str)
+// ATOMIC BEGIN
+unsigned StringHash::Calculate(const char* str, unsigned hash)
 {
-    unsigned hash = 0;
-
     if (!str)
         return hash;
-
+// ATOMIC END
     while (*str)
     {
         // Perform the actual hashing as case-insensitive

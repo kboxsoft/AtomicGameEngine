@@ -70,15 +70,20 @@ public:
     void SaveProfilerData(const String& filePath);
     /// Begin non-scoped profiled block. Block has to be terminated with call to EndBlock(). This is slow and is for
     /// integration with scripting lnaguages. Use ATOMIC_PROFILE* macros when writing c++ code instead.
-    static void BeginBlock(const String& name, const String& file, int line,
-                           const String& uniqueName,  // file:line
+    void BeginBlock(const char* name, const char* file, int line,
+                           unsigned int color = profiler::colors::Default,
+                           unsigned char status=profiler::ON);
+    /// Begin non-scoped profiled block. Block has to be terminated with call to EndBlock(). This is slow and is for
+    /// integration with scripting lnaguages. Use ATOMIC_PROFILE* macros when writing c++ code instead.
+    void BeginBlock(const String& name, const String& file, int line,
                            unsigned int color = profiler::colors::Default,
                            unsigned char status=profiler::ON);
     /// End block started with BeginBlock().
-    static void EndBlock();
+    void EndBlock();
 
 private:
     bool enableEventProfiling_ = true;
+    HashMap<unsigned, profiler::BaseBlockDescriptor*> blockDescriptorCache_;
 };
 
 #ifdef ATOMIC_PROFILING

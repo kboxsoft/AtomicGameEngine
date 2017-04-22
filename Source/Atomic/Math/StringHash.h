@@ -100,14 +100,13 @@ public:
     /// Return hash value for HashSet & HashMap.
     unsigned ToHash() const { return value_; }
 
-    /// Calculate hash value case-insensitively from a C string.
-    static unsigned Calculate(const char* str);
-
     /// Zero hash.
     static const StringHash ZERO;
 
     // ATOMIC BEGIN
 
+    /// Calculate hash value case-insensitively from a C string.
+    static unsigned Calculate(const char* str, unsigned hash = 0);
     /// Register significant string, which can be looked up via hash, note that the lookup is case insensitive
     static StringHash RegisterSignificantString(const String& str);
     /// Register significant string, which can be looked up via hash, note that the lookup is case insensitive

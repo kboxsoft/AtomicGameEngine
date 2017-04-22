@@ -21,7 +21,8 @@
 //
 
 #include "../Precompiled.h"
-#include "Profiler.h"
+#include "../Core/Profiler.h"
+#include "../Core/StringUtils.h"
 
 
 namespace Atomic
@@ -95,6 +96,34 @@ void Profiler::SetEventProfilingEnabled(bool enabled)
 bool Profiler::GetEventProfilingEnabled() const
 {
     return enableEventProfiling_;
+}
+
+void Profiler::BeginBlock(const char* name, const char* file, int line, unsigned int color, unsigned char status)
+{
+    // Line used as starting hash value for efficiency.
+    // This is likely to not play well with hot code reload.
+    unsigned hash = StringHash::Calculate(file, (unsigned)line);
+    HashMap<unsigned, profiler::BaseBlockDescriptor*>::Iterator it = blockDescriptorCache_.Find(hash);
+    const profiler::BaseBlockDescriptor* desc = 0;
+    if (it == blockDescriptorCache_.End())
+    {
+        String uniqueName = ToString("%s:%d", file, line);
+        desc = ::profiler::registerDescription((profiler::EasyBlockStatus)status, uniqueName.CString(), name, file,
+                                               line, profiler::BLOCK_TYPE_BLOCK, color, true);
+    }
+    else
+        desc = it->second_;
+    profiler::beginNonScopedBlock(desc, name);
+}
+
+void Profiler::BeginBlock(const String& name, const String& file, int line, unsigned int color, unsigned char status)
+{
+    BeginBlock(name.CString(), file.CString(), line, color, status);
+}
+
+void Profiler::EndBlock()
+{
+    profiler::endBlock();
 }
 
 }
