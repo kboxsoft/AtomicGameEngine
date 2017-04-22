@@ -25,7 +25,10 @@
 #include "../Audio/Audio.h"
 #include "../Core/Context.h"
 #include "../Core/CoreEvents.h"
-#include "../Core/EventProfiler.h"
+// ATOMIC BEGIN
+#include "../Core/Profiler.h"
+#include "../Engine/EngineDefs.h"
+// ATOMIC END
 #include "../Core/ProcessUtils.h"
 #include "../Core/WorkQueue.h"
 #include "../Engine/Engine.h"
@@ -335,11 +338,14 @@ bool Engine::Initialize(const VariantMap& parameters)
 #endif
 
 #ifdef ATOMIC_PROFILING
-    if (GetParameter(parameters, EP_EVENT_PROFILER, true).GetBool())
+    // ATOMIC BEGIN
+    if (Profiler* profiler = GetSubsystem<Profiler>())
     {
-        context_->RegisterSubsystem(new EventProfiler(context_));
-        EventProfiler::SetActive(true);
+        if (GetParameter(parameters, EP_PROFILER_LISTEN, true).GetBool())
+            profiler->StartListen((unsigned short)GetParameter(parameters, EP_PROFILER_PORT, DEFAULT_PROFILER_PORT).GetInt());
+        profiler->SetEventProfilingEnabled(GetParameter(parameters, EP_EVENT_PROFILER, true).GetBool());
     }
+    // ATOMIC END
 #endif
     frameTimer_.Reset();
 
@@ -508,6 +514,7 @@ bool Engine::InitializeResourceCache(const VariantMap& parameters, bool removeOl
 
 void Engine::RunFrame()
 {
+    ATOMIC_PROFILE(RunFrame);
     assert(initialized_);
 
     // If not headless, and the graphics subsystem no longer has a window open, assume we should exit
@@ -523,18 +530,10 @@ void Engine::RunFrame()
     Input* input = GetSubsystem<Input>();
     Audio* audio = GetSubsystem<Audio>();
 
-#ifdef ATOMIC_PROFILING
-    if (EventProfiler::IsActive())
-    {
-        EventProfiler* eventProfiler = GetSubsystem<EventProfiler>();
-        if (eventProfiler)
-            eventProfiler->BeginFrame();
-    }
-#endif
-
+// ATOMIC BEGIN
+    ATOMIC_PROFILE(DoFrame);
     time->BeginFrame(timeStep_);
-
-    // ATOMIC BEGIN
+// ATOMIC BEGIN
     // check for exit again that comes in thru an event handler
     if ( exiting_ ) // needed to prevent scripts running the 
         return;     // current frame update with null objects
@@ -573,9 +572,10 @@ void Engine::RunFrame()
         fpsFramesSinceUpdate_ = 0;
         fpsTimeSinceUpdate_ = 0;
     }
-    // ATOMIC END
-
+// ATOMIC END
     Render();
+    ATOMIC_PROFILE_END();
+// ATOMIC END
     ApplyFrameLimit();
 
     time->EndFrame();
@@ -645,14 +645,7 @@ void Engine::Exit()
 
 void Engine::DumpProfiler()
 {
-#ifdef ATOMIC_LOGGING
-    if (!Thread::IsMainThread())
-        return;
-
-    Profiler* profiler = GetSubsystem<Profiler>();
-    if (profiler)
-        ATOMIC_LOGRAW(profiler->PrintData(true, true) + "\n");
-#endif
+    // ATOMIC
 }
 
 void Engine::DumpResources(bool dumpFileName)

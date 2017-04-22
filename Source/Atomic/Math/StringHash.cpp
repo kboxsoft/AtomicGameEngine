@@ -43,11 +43,17 @@ const StringHash StringHash::ZERO;
 StringHash::StringHash(const char* str) :
     value_(Calculate(str))
 {
+#if ATOMIC_PROFILING
+    RegisterSignificantString(str, value_);
+#endif
 }
 
 StringHash::StringHash(const String& str) :
     value_(Calculate(str.CString()))
 {
+#if ATOMIC_PROFILING
+    RegisterSignificantString(str, value_);
+#endif
 }
 
 unsigned StringHash::Calculate(const char* str)
@@ -78,36 +84,45 @@ String StringHash::ToString() const
 // ATOMIC BEGIN
 
 // Lookup for significant strings, not a member of StringHash so don't need to drag hashmap into header
-static HashMap<unsigned, String> gSignificantLookup;
-
-StringHash StringHash::RegisterSignificantString(const char* str)
-{
-    unsigned hash = Calculate(str);
-
-    if (gSignificantLookup.Contains(hash))
-        return StringHash(hash);
-
-    gSignificantLookup[hash] = String(str);
-
-    return StringHash(hash);
-
-}
+static HashMap<unsigned, String>* gSignificantLookup = 0;
 
 StringHash StringHash::RegisterSignificantString(const String& str)
 {
-    return RegisterSignificantString(str.CString());
+    return RegisterSignificantString(str.CString(), Calculate(str.CString()));
+}
+
+StringHash StringHash::RegisterSignificantString(const char* str, unsigned hash)
+{
+    if (!gSignificantLookup)
+        gSignificantLookup = new HashMap<unsigned, String>();
+
+    if (gSignificantLookup->Contains(hash))
+        return StringHash(hash);
+
+    (*gSignificantLookup)[hash] = str;
+
+    return StringHash(hash);
+}
+
+StringHash StringHash::RegisterSignificantString(const char* str)
+{
+    return RegisterSignificantString(str, Calculate(str));
+}
+
+StringHash StringHash::RegisterSignificantString(const String& str, unsigned hash)
+{
+    return RegisterSignificantString(str.CString(), hash);
 }
 
 bool StringHash::GetSignificantString(unsigned hash, String& strOut)
 {
-    if (!gSignificantLookup.TryGetValue(hash, strOut))
+    if (!gSignificantLookup || !gSignificantLookup->TryGetValue(hash, strOut))
     {
         strOut.Clear();
         return false;
     }
 
     return true;
-
 }
 
 // ATOMIC END

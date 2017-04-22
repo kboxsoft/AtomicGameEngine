@@ -167,10 +167,11 @@ if (NOT WEB)
     target_link_libraries (Atomic libcurl Civetweb kNet)
 endif()
 
-option (ATOMIC_PROFILING "Enable profiler" ON)
+option (ATOMIC_PROFILING "Enable profiler" ${ATOMIC_RELEASE_OFF})
 if (ATOMIC_PROFILING)
     target_compile_definitions (Atomic PUBLIC -DATOMIC_PROFILING=1)
 endif ()
+target_link_libraries (Atomic easy_profiler)    # Needed for includes
 
 option (ATOMIC_LOGGING "Enable logging" ON)
 if (ATOMIC_LOGGING)

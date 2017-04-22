@@ -43,10 +43,7 @@ bool Resource::Load(Deserializer& source)
     // create a type name -based profile block here
 #ifdef ATOMIC_PROFILING
     String profileBlockName("Load" + GetTypeName());
-
-    Profiler* profiler = GetSubsystem<Profiler>();
-    if (profiler)
-        profiler->BeginBlock(profileBlockName.CString());
+    ATOMIC_PROFILE_SCOPED(profileBlockName.CString(), profiler::colors::Cyan);
 #endif
 
     // If we are loading synchronously in a non-main thread, behave as if async loading (for example use
@@ -56,11 +53,6 @@ bool Resource::Load(Deserializer& source)
     if (success)
         success &= EndLoad();
     SetAsyncLoadState(ASYNC_DONE);
-
-#ifdef ATOMIC_PROFILING
-    if (profiler)
-        profiler->EndBlock();
-#endif
 
     return success;
 }

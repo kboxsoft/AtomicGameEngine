@@ -25,6 +25,9 @@
 #include "../Engine/Application.h"
 #include "../IO/IOEvents.h"
 #include "../IO/Log.h"
+// ATOMIC BEGIN
+#include "../Core/Profiler.h"
+// ATOMIC END
 
 #ifdef IOS
 #include "../Graphics/Graphics.h"
@@ -87,6 +90,7 @@ Application::Application(Context* context) :
 
 int Application::Run()
 {
+    ATOMIC_PROFILE_THREAD("Main");
 #if !defined(__GNUC__) || __EXCEPTIONS
     try
     {

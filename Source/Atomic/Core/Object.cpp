@@ -25,6 +25,9 @@
 #include "../Core/Context.h"
 #include "../Core/Thread.h"
 #include "../IO/Log.h"
+// ATOMIC BEGIN
+#include "../Core/Profiler.h"
+// ATOMIC END
 
 #include "../DebugNew.h"
 
@@ -317,6 +320,16 @@ void Object::SendEvent(StringHash eventType, VariantMap& eventData)
     HashSet<Object*> processed;
 
 // ATOMIC BEGIN
+#if ATOMIC_PROFILING
+    bool eventProfilingEnabled = GetSubsystem<Profiler>()->GetEventProfilingEnabled();
+    if (eventProfilingEnabled)
+    {
+        String eventName;
+        if (!StringHash::GetSignificantString(eventType.Value(), eventName))
+            eventName = eventType.ToString();
+        ATOMIC_PROFILE_NONSCOPED(eventName.CString(), profiler::colors::Orange);
+    }
+#endif
     context->GlobalBeginSendEvent(this, eventType, eventData);
 // ATOMIC END
 
@@ -403,6 +416,8 @@ void Object::SendEvent(StringHash eventType, VariantMap& eventData)
 
 // ATOMIC BEGIN
     context->GlobalEndSendEvent(this,eventType, eventData);
+    if (eventProfilingEnabled)
+        ATOMIC_PROFILE_END();
 // ATOMIC END
 
 }

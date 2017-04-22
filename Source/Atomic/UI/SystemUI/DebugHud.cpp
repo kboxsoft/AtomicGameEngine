@@ -213,63 +213,51 @@ void DebugHud::Update(float timeStep)
         modeText_->SetText(mode);
     }
 
-    Profiler* profiler = GetSubsystem<Profiler>();
-    
-    if (profiler)
+    if (profilerTimer_.GetMSec(false) >= profilerInterval_)
     {
-        if (profilerTimer_.GetMSec(false) >= profilerInterval_)
+        profilerTimer_.Reset();
+
+        if (profilerText_->IsVisible())
         {
-            profilerTimer_.Reset();
+            String profilerOutput;
 
-            if (profilerText_->IsVisible())
+            if (profilerMode_ == DEBUG_HUD_PROFILE_METRICS)
             {
-                String profilerOutput;
-
-                if (profilerMode_ == DEBUG_HUD_PROFILE_PERFORMANCE)
-                {
-                    profilerOutput = profiler->PrintData(false, false, profilerMaxDepth_);
-                }
-                else
-                {
-                    Metrics* metrics = GetSubsystem<Metrics>();
+                Metrics* metrics = GetSubsystem<Metrics>();
 
                     int size = profilerText_->GetFontSize();
 
-                    if (metrics)
-                    {                        
+                if (metrics)
+                {
 
-                        if (metrics->GetEnabled())
-                        {
-                            if (size != 8)
-                                profilerText_->SetFont(profilerText_->GetFont(), 8);
+                    if (metrics->GetEnabled())
+                    {
+                        if (size != 8)
+                            profilerText_->SetFont(profilerText_->GetFont(), 8);
 
-                            SharedPtr<MetricsSnapshot> snapshot(new MetricsSnapshot());
-                            metrics->Capture(snapshot);
-                            profilerOutput = snapshot->PrintData(2);
-                        }
-                        else
-                        {
-                            if (size != 32)
-                                profilerText_->SetFont(profilerText_->GetFont(), 32);
-
-                            profilerOutput = "Metrics system not enabled";
-                        }
-
+                        SharedPtr<MetricsSnapshot> snapshot(new MetricsSnapshot());
+                        metrics->Capture(snapshot);
+                        profilerOutput = snapshot->PrintData(2);
                     }
                     else
                     {
                         if (size != 32)
                             profilerText_->SetFont(profilerText_->GetFont(), 32);
 
-                        profilerOutput = "Metrics subsystem not found";
+                        profilerOutput = "Metrics system not enabled";
                     }
+                }
+                else
+                {
+                    if (size != 32)
+                        profilerText_->SetFont(profilerText_->GetFont(), 32);
 
+                    profilerOutput = "Metrics subsystem not found";
                 }
 
-                profilerText_->SetText(profilerOutput);
             }
 
-            profiler->BeginInterval();
+            profilerText_->SetText(profilerOutput);
         }
     }
 }

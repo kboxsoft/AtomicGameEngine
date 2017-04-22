@@ -266,18 +266,10 @@ void BackgroundLoader::FinishBackgroundLoading(BackgroundLoadItem& item)
     {
 #ifdef ATOMIC_PROFILING
         String profileBlockName("Finish" + resource->GetTypeName());
-
-        Profiler* profiler = owner_->GetSubsystem<Profiler>();
-        if (profiler)
-            profiler->BeginBlock(profileBlockName.CString());
+        ATOMIC_PROFILE_SCOPED(profileBlockName.CString(), profiler::colors::Cyan);
 #endif
         ATOMIC_LOGDEBUG("Finishing background loaded resource " + resource->GetName());
         success = resource->EndLoad();
-
-#ifdef ATOMIC_PROFILING
-        if (profiler)
-            profiler->EndBlock();
-#endif
     }
     resource->SetAsyncLoadState(ASYNC_DONE);
 
