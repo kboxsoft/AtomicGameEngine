@@ -9,7 +9,7 @@
 	<parameter name="PackTexFactors" value="1 1 1 1" />
 	<parameter name="BumpStrength" value="128" />
 	<parameter name="LayerScaling1" value="1 1 1 1" />
-	<parameter name="LayerScaling2" value="1 1 1 0.125" />
+	<parameter name="LayerScaling2" value="1 1 1 1" />
 	<parameter name="Roughness" value="1" />
 	<parameter name="Metallic" value="0" />
 	<cull value="ccw" />

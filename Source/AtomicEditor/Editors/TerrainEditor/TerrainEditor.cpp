@@ -339,12 +339,12 @@ namespace AtomicEditor
 			else if (mode_ == TerrainEditMode::FLATTEN) {
 				ApplyHeightBrush(terrain_, heightmap, nullptr, cursorPosition_.x_, cursorPosition_.z_, radius, flattenHeight_, smoothpower, brushHardness_, false, dt);
 			}
-			//else if (mode_ == TerrainEditMode::PAINT) {
-			//	ApplyBlendBrush(terrain_, heightmap, colorMap_, nullptr, cursorPosition_.x_, cursorPosition_.z_, radius, max, paintpower, brushHardness_, paintLayer_, false, dt);
-			//}
 			else if (mode_ == TerrainEditMode::PAINT) {
-				DrawObject(terrain_, heightmap, nullptr, cursorPosition_.x_, cursorPosition_.y_, cursorPosition_.z_, radius, max, paintpower, brushHardness_, paintLayer_, false, dt);
+				ApplyBlendBrush(terrain_, heightmap, colorMap_, nullptr, cursorPosition_.x_, cursorPosition_.z_, radius, max, paintpower, brushHardness_, paintLayer_, false, dt);
 			}
+			//else if (mode_ == TerrainEditMode::PAINT) {
+			//	DrawObject(terrain_, heightmap, nullptr, cursorPosition_.x_, cursorPosition_.y_, cursorPosition_.z_, radius, max, paintpower, brushHardness_, paintLayer_, false, dt);
+			//}
 
 			if (mode_ != TerrainEditMode::PAINT && mode_ != TerrainEditMode::OBJECTS) {
 				terrain_->ApplyHeightMap();

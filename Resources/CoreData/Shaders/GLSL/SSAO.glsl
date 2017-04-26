@@ -19,6 +19,7 @@ void VS()
 
 
 #ifdef COMPILEPS
+uniform highp vec2 cScreenSize;
 
 // Port from: https://github.com/jsj2008/Zombie-Blobs/blob/278e16229ccb77b2e11d788082b2ccebb9722ace/src/postproc.fs
 
@@ -33,17 +34,17 @@ mat3 rotateNormalVecToAnother(vec3 f, vec3 t) {
 }
 
 vec3 normal_from_depth(float depth, highp vec2 texcoords) {
-    
+    // One pixel: 0.001 = 1 / 1000 (pixels)
     const vec2 offset1 = vec2(0.0, 0.001);
     const vec2 offset2 = vec2(0.001, 0.0);
     
-    float depth1 = DecodeDepth(texture2D(sDepthBuffer, texcoords + offset1).rgb);
-    float depth2 = DecodeDepth(texture2D(sDepthBuffer, texcoords + offset2).rgb);
+    float depth1 = DecodeDepth(texture2D(sEmissiveMap, texcoords + offset1).rgb);
+    float depth2 = DecodeDepth(texture2D(sEmissiveMap, texcoords + offset2).rgb);
     
     vec3 p1 = vec3(offset1, depth1 - depth);
     vec3 p2 = vec3(offset2, depth2 - depth);
     
-    vec3 normal = cross(p1, p2);
+    highp vec3 normal = cross(p1, p2);
     normal.z = -normal.z;
     
     return normalize(normal);
@@ -51,22 +52,19 @@ vec3 normal_from_depth(float depth, highp vec2 texcoords) {
 
 void PS()
 {
-    const float STRENGTH = 1.0;
-
-    const float zNear = 1.0;
-    const float zFar = 100.0;
-    const highp vec2  screenSize = vec2(1024.0, 768.0);
+    const float aoStrength = 1.0;
     
     highp vec2 tx = vScreenPos;
-    highp vec2 px = vec2(1.0 / screenSize.x, 1.0 / screenSize.y);
+    highp vec2 px = vec2(1.0 / cScreenSize.x, 1.0 / cScreenSize.y);
     
-    float depth = DecodeDepth(texture2D(sDepthBuffer, vScreenPos).rgb);
+    float depth = DecodeDepth(texture2D(sEmissiveMap, vScreenPos).rgb);
     vec3  normal = normal_from_depth(depth, vScreenPos);
     
-    float radius = 0.6;
-    float zRange = radius / (zFar - zNear);
+    // radius is in world space unit
+    const float radius = 1.0;
+    float zRange = radius / (cFarClipPS - cNearClipPS);
     
-    // The inverse matrix of the normal
+    // calculate inverse matrix of the normal by rotate it to identity
     mat3 InverseNormalMatrix = rotateNormalVecToAnother(normal, vec3(0.0, 0.0, 1.0));
     
     // result of line sampling
@@ -77,36 +75,37 @@ void PS()
     
     for (int x = -2; x <= 2; ++x) {
         for (int y = -2; y <= 2; ++y) {
-            // Ignore itself
-            if (x == 0 && y == 0) continue;
-
-            // Smaller hemisphere
-            float rx = 0.3 * x;
-            float ry = 0.3 * y;
+            // make virtual sphere of unit volume, more closer to center, more ambient occlusion contributions
+            float rx = 0.3 * float(x);
+            float ry = 0.3 * float(y);
             float rz = sqrt(1.0 - rx * rx - ry * ry);
             
-            highp vec3 screenCoord = vec3(x * px.x, y * px.y, 0.0);
-            // just a guess, should sample some constant sized disc in world coords
-            highp vec2 coord = tx + (5.0 - 4.0 * depth) * screenCoord.xy;
-            screenCoord.z = DecodeDepth(texture2D(sDepthBuffer, coord).rgb);
+            highp vec3 screenCoord = vec3(float(x) * px.x, float(y) * px.y, 0.0);
+            // 0.25 times smaller when farest, 5.0 times bigger when nearest.
+            highp vec2 coord = tx + (5.0 - 4.75 * depth) * screenCoord.xy;
+            // fetch depth from texture
+            screenCoord.z = DecodeDepth(texture2D(sEmissiveMap, coord).rgb);
+            // move to origin
             screenCoord.z -= depth;
 
-            // Ignore geometries beyond radius
+            // ignore occluders which are too far away
             if (screenCoord.z < -zRange) continue;
 
             // Transform to normal-oriented hemisphere space
             highp vec3 localCoord = InverseNormalMatrix * screenCoord;
+            // ralative depth in the world space radius
             float dr = localCoord.z / zRange;
-            float v = max(min(rz, STRENGTH * dr) + rz, 0);
+            // calculate contribution
+            float v = clamp(rz + dr * aoStrength, 0.0, 2.0 * rz);
 
             maxi += rz;
             hemi += v;
         }
     }
 
-    hemi = hemi / maxi;
+    float ao = clamp(hemi / maxi, 0.0, 1.0);
 
-    gl_FragColor = vec4(vec3(hemi), 1.0);
+    gl_FragColor = vec4(texture2D(sDiffMap, vScreenPos).rgb * ao, 1.0);
 }
 
 #endif

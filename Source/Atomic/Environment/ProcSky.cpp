@@ -187,7 +187,7 @@ float ProcSky::SetDayTime(float time)
             if (shadowFade_ > 1.0f)
                 shadowFade_ = 1.0f;
 
-            sunlight_->SetShadowIntensity(shadowFade_);
+            sunlight_->SetShadowIntensity(shadowFade_ * 2);
 
             if (!sunlight_->GetCastShadows())
                 sunlight_->SetCastShadows(true);
@@ -210,7 +210,7 @@ float ProcSky::SetDayTime(float time)
             if (shadowFade_ < 0.0f)
                 shadowFade_ = 0.0f;
 
-            sunlight_->SetShadowIntensity(shadowFade_);
+            sunlight_->SetShadowIntensity(shadowFade_ * 2);
 
             if (!sunlight_->GetCastShadows())
                 sunlight_->SetCastShadows(true);
@@ -425,7 +425,7 @@ void ProcSky::Initialize()
     sunlight_ = node_->CreateComponent<Light>();
     sunlight_->SetLightType(LIGHT_DIRECTIONAL);
     sunlight_->SetCastShadows(true);
-
+	sunlight_->SetBrightness(4.0f);
 
     sunlight_->SetShadowBias(BiasParameters(0.0001f, 0.5f));
     // Set cascade splits at 10, 50 and 200 world units, fade shadows out at 80% of maximum shadow distance

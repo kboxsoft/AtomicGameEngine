@@ -360,21 +360,25 @@ namespace Atomic
                 batches_[i + numBatches].distance_ = batches_[i].distance_;
             }
         }
+		
+			// Update LODs
+			float scale = worldBoundingBox.Size().DotProduct(DOT_SCALE);
+			float newLodDistance = frame.camera_->GetLodDistance(distance_, scale, lodBias_);
 
-        // Update LODs
-        float scale = worldBoundingBox.Size().DotProduct(DOT_SCALE);
-        float newLodDistance = frame.camera_->GetLodDistance(distance_, scale, lodBias_);
-
-		//Quick hack (need to fix scaled distances etc)
-		if (newLodDistance > 10 && model_ != imposterModel_)
-		{
-			SetModel(imposterModel_);
-		}
-		else if (newLodDistance < 10 && model_ == imposterModel_)
-		{
-			SetModel(fullModel_);
-		}
-
+			if (imposterModel_)
+			{
+				float impostorScale = imposterModel_->GetBoundingBox().Size().DotProduct(DOT_SCALE);
+				float newImpostorLodDistance = frame.camera_->GetLodDistance(distance_, impostorScale, lodBias_);
+				if (newLodDistance > 10 && model_ != imposterModel_)
+				{
+					SetModel(imposterModel_);
+				}
+				else if (newImpostorLodDistance < 10 && model_ == imposterModel_)
+				{
+					SetModel(fullModel_);
+				}
+			}
+		
         assert(numLodSwitchAnimations_ >= 0);
         if (newLodDistance != lodDistance_ || numLodSwitchAnimations_ > 0)
         {

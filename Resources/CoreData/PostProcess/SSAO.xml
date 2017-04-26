@@ -1,14 +1,7 @@
 <renderpath>
-
-    <rendertarget name="depth" sizedivisor="1 1" format="lineardepth" />
-    <rendertarget name="occlusion" sizedivisor="1 1" format="rgba" filter="true" />
-    
-    <command type="quad" tag="SAO_main3" vs="SAO_main3" ps="SAO_main3" output="occlusion">
-        <texture unit="depth" name="depth" />
-    </command>
-
-    <command type="quad" tag="SAO_copy" psdefines="" enabled="true" vs="SAO_copy" ps="SAO_copy" >
+    <command type="quad" tag="SSAO" vs="SSAO" ps="SSAO">
+        <parameter name="ScreenSize" value="1920 1080" />
         <texture unit="diffuse" name="viewport" />
-        <texture unit="emissive" name="occlusion" />
+        <texture unit="emissive" name="depth" />
     </command>
 </renderpath>

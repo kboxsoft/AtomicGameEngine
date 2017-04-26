@@ -74,8 +74,8 @@ vec3 ColorCorrection(vec3 color, sampler3D lut)
 }
 #endif
 
-const float Gamma = 2.2;
-const float InverseGamma = 1.0 / 2.2;
+const float Gamma = 1.6;
+const float InverseGamma = 1.0 / 1.6;
 
 vec3 ToGamma(vec3 color)
 {
