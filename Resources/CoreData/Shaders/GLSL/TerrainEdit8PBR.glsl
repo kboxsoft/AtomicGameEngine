@@ -158,6 +158,7 @@ void PS()
     weights[0] = texture(sWeightMap0, vTexCoord.xy);
 	weights[1] = texture(sWeightMap1, vTexCoord.xy);
 	
+    vec4 tex[32];
 	#ifdef TRIPLANAR
 	
 	vec3 nrm = normalize(vNormal);
@@ -166,8 +167,6 @@ void PS()
 	float blendweights=blending.x+blending.y+blending.z;
 	blending=blending/blendweights;
 
-    vec4 tex[32];
-	
 	 tex[0]=texture(sDetailMap2, vec3(vDetailTexCoord.zy*cLayerScaling1.r, 0))*blending.x +
 		texture(sDetailMap2, vec3(vDetailTexCoord.xy*cLayerScaling1.r, 0))*blending.z +
 		texture(sDetailMap2, vec3(vDetailTexCoord.xz*cLayerScaling1.r, 0))*blending.y;
@@ -207,7 +206,8 @@ void PS()
 float b[32];
 
 	#ifndef SMOOTHBLEND
-		float ma=max(tex[0].a+weights[0].r, max(tex[1].a+weights[0].g, max(tex[2].a+weights[0].b, max(tex[3].a+weights[0].a, max(tex[4].a+weights[1].r, max(tex[5].a+weights[1].g, max(tex[6].a+weights[1].b, tex[7].a+weights[1].a)))))))-0.2;
+		float ma=max(tex[0].a+weights[0].r, max(tex[1].a+weights[0].g, max(tex[2].a+weights[0].b, max(tex[3].a+weights[0].a, 
+                 max(tex[4].a+weights[1].r, max(tex[5].a+weights[1].g, max(tex[6].a+weights[1].b, max(tex[7].a+weights[1].a))))))))-0.2;
 		b[0]=max(0, tex[0].a+weights[0].r-ma);
 		b[1]=max(0, tex[1].a+weights[0].g-ma);
 		b[2]=max(0, tex[2].a+weights[0].b-ma);
@@ -233,10 +233,15 @@ float b[32];
     for(int i = 0; i < cNumTextures; i++)
     {
         bsum+=b[i];
-        diffColor += tex[i] * b[i];
+      //  diffColor += tex[i] * b[i];
+
+
     }
 
-    diffColor /= bsum;
+ // diffColor /= bsum;
+ //bsum=b[0]+b[1]+b[2]+b[3]+b[4]+b[5];
+ diffColor=(tex[0]*b[0]+tex[1]*b[1]+tex[2]*b[2]+tex[3]*b[3]+tex[4]*b[4]+tex[5]*b[5])/bsum;
+	
 
 
     //####################################################################
@@ -248,7 +253,7 @@ float b[32];
         diffColor *= vColor;
     #endif
 
-    #ifdef METALLIC
+    #ifdef METALLIC2
         vec4 roughMetalSrc = texture2D(sSpecMap, vTexCoord.xy);
 
         float roughness = roughMetalSrc.r + cRoughness;
