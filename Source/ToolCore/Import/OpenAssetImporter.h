@@ -63,7 +63,7 @@ public:
     void SetImportMaterials(bool importMaterials) { importMaterials_ = importMaterials; }
     void SetIncludeNonSkinningBones(bool includeNonSkinningBones) { includeNonSkinningBones_ = includeNonSkinningBones; }
     void SetVerboseLog(bool verboseLog) { verboseLog_ = verboseLog; }
-
+	void SetMaxBones(float max) { maxBones_ = max; }
     bool GetImportMaterialsDefault() { return importMaterialsDefault_; }
 
     bool GetIncludeNonSkinningBones() { return includeNonSkinningBonesDefault_; }

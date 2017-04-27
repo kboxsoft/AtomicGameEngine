@@ -72,6 +72,8 @@ bool ImportConfig::LoadModelImporterConfig(const JSONValue& jModelImporterConfig
             valueMap_["IncludeNonSkinningBones"] = GetBoolValue(jvalue, true);
         else if (key == "useVertexColors")
             valueMap_["useVertexColors"] = GetBoolValue(jvalue, false);
+		else if (key == "splitManyBones")
+			valueMap_["aiProcess_SplitByBoneCount"] = GetBoolValue(jvalue, false);
     }
 
     return true;

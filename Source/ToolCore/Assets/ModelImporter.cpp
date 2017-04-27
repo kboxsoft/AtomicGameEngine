@@ -78,7 +78,7 @@ bool ModelImporter::ImportModel()
     SharedPtr<OpenAssetImporter> importer(new OpenAssetImporter(context_));
 
     importer->SetVerboseLog(true);
-
+	importer->SetMaxBones(256);
     importer->SetScale(scale_);
     importer->SetExportAnimations(false);
     importer->SetImportNode(importNode_);

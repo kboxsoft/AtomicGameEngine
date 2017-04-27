@@ -6,7 +6,7 @@
 
 varying vec2 vScreenPos;
 
-uniform float amount = 1.0;
+uniform float amount = 0.2;
 const vec4 coeff = vec4(0.299,0.587,0.114, 0.);
 
 void VS()
