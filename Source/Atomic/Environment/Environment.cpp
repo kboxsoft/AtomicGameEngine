@@ -28,7 +28,7 @@
 #include "FoliageSystem.h"
 #include "TreeBillboardSet.h"
 #include "StaticModelEx.h"
-
+#include "SmoothFocus.h"
 
 namespace Atomic
 {
@@ -41,6 +41,7 @@ void RegisterEnvironmentLibrary(Context* context)
 	FoliageSystem::RegisterObject(context);
 	TreeBillboardSet::RegisterObject(context);
 	StaticModelEx::RegisterObject(context);
+	SmoothFocus::RegisterObject(context);
 }
 
 }
