@@ -61,6 +61,8 @@ The Apache License, Version 2.0 (the "License");
 
 #ifdef _WIN32
 #include <Windows.h>
+#elif defined(__APPLE__)
+#include <pthread.h>
 #else
 #include <sys/types.h>
 #include <unistd.h>
@@ -73,13 +75,15 @@ The Apache License, Version 2.0 (the "License");
 #undef max
 #endif
 
-inline uint32_t getCurrentThreadId()
+inline profiler::thread_id_t getCurrentThreadId()
 {
 #ifdef _WIN32
-    return (uint32_t)::GetCurrentThreadId();
+    return (profiler::thread_id_t)::GetCurrentThreadId();
+#elif defined(__APPLE__)
+    return (profiler::thread_id_t)pthread_self();
 #else
     EASY_THREAD_LOCAL static const pid_t x = syscall(__NR_gettid);
-    EASY_THREAD_LOCAL static const uint32_t _id = (uint32_t)x;//std::hash<std::thread::id>()(std::this_thread::get_id());
+    EASY_THREAD_LOCAL static const profiler::thread_id_t _id = (size_t)x;//std::hash<std::thread::id>()(std::this_thread::get_id());
     return _id;
 #endif
 }

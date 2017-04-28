@@ -50,6 +50,7 @@
 
 #include <algorithm>
 #include <fstream>
+#include <string>
 #include <assert.h>
 #include "profile_manager.h"
 
