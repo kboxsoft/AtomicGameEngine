@@ -416,8 +416,10 @@ void Object::SendEvent(StringHash eventType, VariantMap& eventData)
 
 // ATOMIC BEGIN
     context->GlobalEndSendEvent(this,eventType, eventData);
+#if ATOMIC_PROFILING
     if (eventProfilingEnabled)
         ATOMIC_PROFILE_END();
+#endif
 // ATOMIC END
 
 }
