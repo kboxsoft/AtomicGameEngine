@@ -268,6 +268,14 @@ int EasySocket::accept()
         //int flag = 1;
         //int result = setsockopt(m_replySocket,IPPROTO_TCP,TCP_NODELAY,(char *)&flag,sizeof(int));
 
+        // ATOMIC BEGIN
+        // Apple doesn't have MSG_NOSIGNAL, work around it
+#ifdef __APPLE__
+        int value = 1;
+        setsockopt(m_replySocket, SOL_SOCKET, SO_NOSIGPIPE, &value, sizeof(value));
+#endif
+        // ATOMIC END
+
         //setBlocking(m_replySocket,true);
     }
     return (int)m_replySocket;
@@ -309,6 +317,17 @@ int EasySocket::connect()
     {
         res = ::connect(m_socket,(struct sockaddr *) &serv_addr,sizeof(serv_addr));
 
+        // ATOMIC BEGIN
+        // on Apple, treat EISCONN error as success
+#ifdef __APPLE__
+        if (res == -1 && errno == EISCONN)
+        {
+            res = 0;
+            break;
+        }
+#endif
+        // ATOMIC END
+
         checkResult(res);
 
         if (res == 0)
@@ -338,6 +357,12 @@ int EasySocket::connect()
         tv.tv_usec = 0;
 
         setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
+
+#ifdef __APPLE__
+        // Apple doesn't have MSG_NOSIGNAL, work around it
+        int value = 1;
+        setsockopt(m_socket, SOL_SOCKET, SO_NOSIGPIPE, &value, sizeof(value));
+#endif
 
         m_replySocket = m_socket;
     }

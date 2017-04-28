@@ -613,7 +613,13 @@ void NonscopedBlock::copyname()
 
 void NonscopedBlock::destroy()
 {
+// ATOMIC BEGIN
+// work around issue building for macOS/iOS
+#ifndef __APPLE__
     m_runtimeName.std::string::~string(); // free memory used by m_runtimeName
+#endif
+// ATOMIC END
+
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1670,7 +1676,18 @@ void ProfileManager::listen(uint16_t _port)
         bool hasConnect = false;
 
         socket.listen();
-        socket.accept();
+
+        // ATOMIC BEGIN
+        // socket.accept can immediately return from select when
+        // nothing interesting, like say a connection happens
+        while( socket.accept() == -1 )
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+            if (m_stopListen.load(std::memory_order_acquire))
+                return;
+        }
+        // ATOMIC END
 
         EASY_EVENT("ClientConnected", EASY_COLOR_INTERNAL_EVENT, profiler::OFF);
         hasConnect = true;

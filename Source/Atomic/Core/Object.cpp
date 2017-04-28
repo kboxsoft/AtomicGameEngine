@@ -78,11 +78,6 @@ Object::Object(Context* context) :
     context_(context)
 {
     assert(context_);
-    // ATOMIC BEGIN
-#if ATOMIC_PROFILING
-    profiler_ = GetSubsystem<Profiler>();
-#endif
-    // ATOMIC END
 }
 
 Object::~Object()
@@ -326,7 +321,7 @@ void Object::SendEvent(StringHash eventType, VariantMap& eventData)
 
 // ATOMIC BEGIN
 #if ATOMIC_PROFILING
-    bool eventProfilingEnabled = !profiler_.Expired() && profiler_->GetEventProfilingEnabled();
+    bool eventProfilingEnabled = Profiler::GetInstance() ? Profiler::GetInstance()->GetEventProfilingEnabled() : false;
     if (eventProfilingEnabled)
     {
         String eventName;

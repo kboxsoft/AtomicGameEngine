@@ -193,10 +193,6 @@ public:
     static ClassID GetClassIDStatic() { static const int typeID = 0; return (ClassID) &typeID; }
     static const Atomic::String& GetTypeNameStatic() { static const Atomic::String typeNameStatic("Object"); return typeNameStatic; }
 
-protected:
-#if ATOMIC_PROFILING
-    WeakPtr<Profiler> profiler_;
-#endif
     // ATOMIC END
 
 protected:

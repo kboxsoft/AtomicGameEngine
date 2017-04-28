@@ -81,9 +81,14 @@ public:
     /// End block started with BeginBlock().
     void EndBlock();
 
+    /// Get global instance
+    static Profiler* GetInstance() { return instance_; }
+
 private:
     bool enableEventProfiling_ = true;
     HashMap<unsigned, profiler::BaseBlockDescriptor*> blockDescriptorCache_;
+
+    static WeakPtr<Profiler> instance_;
 };
 
 #ifdef ATOMIC_PROFILING

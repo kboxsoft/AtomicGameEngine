@@ -28,14 +28,18 @@
 namespace Atomic
 {
 
+WeakPtr<Profiler> Profiler::instance_;
+
 Profiler::Profiler(Context* context)
     : Object(context)
 {
-    SetEnabled(true);
+    instance_ = this;
+    SetEnabled(true);    
 }
 
 Profiler::~Profiler()
 {
+    instance_ = 0;
 }
 
 void Profiler::SetEnabled(bool enabled)
