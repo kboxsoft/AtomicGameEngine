@@ -1,0 +1,30 @@
+<renderpath>
+    <rendertarget name="lowresRT1" sizedivisor="4 4" format="rgba" filter="true" />
+    <rendertarget name="lowresRT2" sizedivisor="4 4" format="rgba" filter="true" />
+    
+    <!-- Copy LS into lowres RT -->  
+    <command type="quad" tag="MRTTag" vs="CopyFramebuffer" ps="CopyFramebuffer" blend="replace" output="lowresRT1">
+        <texture unit="diffuse" name="specular" />
+    </command>
+
+    <!--<command type="quad" tag="MRTTag" vs="Bloom" ps="Bloom" psdefines="BRIGHT" output="lowresRT1">
+        <parameter name="BloomThreshold" value="0.9" />
+        <texture unit="diffuse" name="viewport" />
+    </command>-->
+    
+    <!-- PostProcess with lowres RT1 into other lowres RT2 -->    
+    <command type="quad" tag="MRTTag" vs="SunMRT" ps="SunMRT" blend="replace" output="lowresRT2">
+        <parameter name="Exposure" value="1.0" />
+        <parameter name="Decay" value="1.0" />
+        <parameter name="Density" value="1.0" />
+        <parameter name="Weight" value="0.01" />
+        <parameter name="LightPositionOnScreen" value="0.8 0.9" />
+        <texture unit="diffuse" name="lowresRT1" />
+    </command>
+    
+    <!-- Blend LS from lowres RT2 into scene frame -->  
+    <command type="quad" tag="MRTTag" vs="CopyFramebuffer" ps="CopyFramebuffer" blend="add" output="viewport">
+        <texture unit="diffuse" name="lowresRT2" />
+    </command>
+    
+</renderpath>
