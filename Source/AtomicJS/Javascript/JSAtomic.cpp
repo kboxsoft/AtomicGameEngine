@@ -46,7 +46,6 @@
 #include "JSCore.h"
 #include "JSFileSystem.h"
 #include "JSGraphics.h"
-#include "JSRenderPath.h"
 #include "JSAudio.h"
 #ifdef ATOMIC_3D
 #include "JSAtomic3D.h"

@@ -1,30 +1,22 @@
 <renderpath>
-    <rendertarget name="lowresRT1" sizedivisor="4 4" format="rgba" filter="true" />
-    <rendertarget name="lowresRT2" sizedivisor="4 4" format="rgba" filter="true" />
+    <rendertarget name="occlusionRT" sizedivisor="4 4" format="rgba" filter="true" />
+    <rendertarget name="godraysRT" sizedivisor="4 4" format="rgba" filter="true" />
     
-    <!-- Copy LS into lowres RT -->  
-    <command type="quad" tag="MRTTag" vs="CopyFramebuffer" ps="CopyFramebuffer" blend="replace" output="lowresRT1">
-        <texture unit="diffuse" name="specular" />
+    <command type="quad" tag="GodRays" vs="CopyFramebuffer" ps="CopyFramebuffer" blend="replace" output="occlusionRT">
+        <texture unit="emissive" name="occlusion" />
     </command>
-
-    <!--<command type="quad" tag="MRTTag" vs="Bloom" ps="Bloom" psdefines="BRIGHT" output="lowresRT1">
-        <parameter name="BloomThreshold" value="0.9" />
-        <texture unit="diffuse" name="viewport" />
-    </command>-->
     
-    <!-- PostProcess with lowres RT1 into other lowres RT2 -->    
-    <command type="quad" tag="MRTTag" vs="SunMRT" ps="SunMRT" blend="replace" output="lowresRT2">
+    <command type="quad" tag="GodRays" vs="GodRays" ps="GodRays" blend="replace" output="godraysRT">
         <parameter name="Exposure" value="1.0" />
-        <parameter name="Decay" value="1.0" />
+        <parameter name="Decay" value="0.98" />
         <parameter name="Density" value="1.0" />
         <parameter name="Weight" value="0.01" />
-        <parameter name="LightPositionOnScreen" value="0.8 0.9" />
-        <texture unit="diffuse" name="lowresRT1" />
+        <parameter name="LightPositionOnScreen" value="0 0" />
+        <texture unit="diffuse" name="occlusionRT" />
     </command>
     
-    <!-- Blend LS from lowres RT2 into scene frame -->  
-    <command type="quad" tag="MRTTag" vs="CopyFramebuffer" ps="CopyFramebuffer" blend="add" output="viewport">
-        <texture unit="diffuse" name="lowresRT2" />
+    <command type="quad" tag="GodRays" vs="CopyFramebuffer" ps="CopyFramebuffer" blend="add" output="viewport">
+        <texture unit="diffuse" name="godraysRT" />
     </command>
     
 </renderpath>
