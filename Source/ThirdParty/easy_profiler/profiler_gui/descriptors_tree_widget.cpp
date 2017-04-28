@@ -74,7 +74,6 @@
 
 #ifdef _WIN32
 #include <Windows.h>
-#include <processthreadsapi.h>
 #endif
 
 #ifdef max

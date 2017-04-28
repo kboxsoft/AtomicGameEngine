@@ -99,14 +99,34 @@ if (NOT ANDROID)
 
     find_package(Qt5Widgets)
     if (Qt5Widgets_FOUND)
-
+        if (MSVC)
+            # /!\ THIS IS A HACK /!\
+            # Official Qt builds on windows link to dynamic vc runtime. Engine links to static vc runtime. Since Profiler
+            # tool must use same (dynamic) runtime as Qt libraries and it also must link to easy_profiler library we build
+            # a second copy of easy_profiler targetting dynamic runtime and have Profiler link to that.
+            set(CompilerFlags CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE)
+            foreach(CompilerFlag ${CompilerFlags})
+                string(REPLACE "/MT" "/MD" ${CompilerFlag} "${${CompilerFlag}}")
+            endforeach()
+            set (TARGET_NAME easy_profiler_md)
+            define_source_files (GLOB_CPP_PATTERNS easy_profiler_core/*.cpp GLOB_H_PATTERNS easy_profiler_core/*.h easy_profiler_core/include/*.h)
+            set (INCLUDE_DIRS easy_profiler_core/include)
+            setup_library ()
+            get_property(EASY_PROFILER_COMPILE_DEFINITIONS TARGET easy_profiler PROPERTY COMPILE_DEFINITIONS)
+            target_compile_definitions(easy_profiler_md PUBLIC ${EASY_PROFILER_COMPILE_DEFINITIONS})
+            set (easy_profiler easy_profiler_md)
+            set (APPLICATION_PLATFORM WIN32)
+            # /!\ HACK IS NO MORE /!\
+        else ()
+            set (easy_profiler easy_profiler)
+        endif ()
         set (TARGET_NAME Profiler)
         define_source_files (GLOB_CPP_PATTERNS profiler_gui/*.cpp GLOB_H_PATTERNS profiler_gui/*.h profiler_gui/*.qrc profiler_gui/*.rc)
-        setup_executable(TOOL)
+        setup_executable(TOOL ${APPLICATION_PLATFORM})
         if (CMAKE_VERSION VERSION_GREATER "3.0")
             set_target_properties(Profiler PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
         endif ()
-        target_link_libraries(Profiler Qt5::Widgets easy_profiler)
+        target_link_libraries(Profiler Qt5::Widgets ${easy_profiler})
         if (WIN32)
             target_link_libraries(Profiler ws2_32 psapi)
         endif ()

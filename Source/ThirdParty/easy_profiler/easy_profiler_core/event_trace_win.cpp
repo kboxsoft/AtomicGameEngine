@@ -66,7 +66,6 @@
 
 #include "event_trace_win.h"
 #include <Psapi.h>
-#include <processthreadsapi.h>
 //#include <Shellapi.h>
 
 #if EASY_OPTION_LOG_ENABLED != 0
