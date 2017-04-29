@@ -100,6 +100,63 @@ bool StaticModelBaker::AddToEmbreeScene()
 
 void StaticModelBaker::ProcessLightmap()
 {
+    // Dilate the image by 2 pixels to allow bilinear texturing near seams.
+    // Note that this still allows seams when mipmapping, unless mipmap levels
+    // are generated very carefully.
+    for (int step = 0; step < 2; step++)
+    {
+        SharedArrayPtr<Color> tmp(new Color[lightmap_->GetWidth() * lightmap_->GetHeight()]);
+        memset (&tmp[0], 0, lightmap_->GetWidth() * lightmap_->GetHeight() * sizeof(Color));
+
+        for (int y = 0; y < lightmap_->GetHeight() ; y++)
+        {
+            for (int x = 0; x < lightmap_->GetWidth(); x++)
+            {
+                int center = x + y * lightmap_->GetWidth();
+
+                const LMLexel& lexel = lmLexels_[center];
+                const Vector3& norm = lexel.normal_;
+
+                tmp[center] = lexel.color_;
+
+                if (norm.x_ == 0 && norm.y_ == 0 && norm.z_ == 0 && lexel.color_ == Color::BLACK)
+                {
+                    for (int k = 0; k < 9; k++)
+                    {
+                        int i = (k / 3) - 1, j = (k % 3) - 1;
+
+                        if (i == 0 && j == 0)
+                        {
+                            continue;
+                        }
+
+                        i += x;
+                        j += y;
+
+                        if (i < 0 || j < 0 || i >= lightmap_->GetWidth() || j >=  lightmap_->GetHeight() )
+                        {
+                            continue;
+                        }
+
+                        const LMLexel& lexel2 = lmLexels_[i + j * lightmap_->GetWidth()];
+
+                        if (lexel2.color_ != Color::BLACK)
+                        {
+                            tmp[center] = lexel2.color_;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        for (unsigned i = 0; i < lmLexels_.Size(); i++)
+        {
+            lmLexels_[i].color_ = tmp[i];
+        }
+
+    }
+
     for (unsigned i = 0; i < lmLexels_.Size(); i++)
     {
         const LMLexel& lexel = lmLexels_[i];
@@ -152,11 +209,11 @@ void StaticModelBaker::TraceSunLight()
         ray.mask = 0xFFFFFFFF;
         ray.geomID = RTC_INVALID_GEOMETRY_ID;
 
-        rtcIntersect(scene, ray);
+        rtcOccluded(scene, ray);
 
-        if (ray.geomID != RTC_INVALID_GEOMETRY_ID && ray.geomID != rtcTriMesh_)
+        if (ray.geomID != 0)//  || ray.geomID == rtcTriMesh_)
         {
-            lexel.color_ = Color(.6f, .6f, .6f);
+            lexel.color_ = Color(1.0f, 1.0f, 1.0f);
         }
 
 
@@ -240,67 +297,16 @@ void StaticModelBaker::TraceAORays(unsigned nsamples, float aoDepth, float multi
 
             float ao = multiply * (1.0f - (float) nhits / nsamples);
             float result = Min<float>(1.0f, ao);
+
+            // TODO: ambient
+            if (result > 0.6f)
+            {
+                result = 0.6f;
+            }
+
             lexel.color_ = Color(result, result, result);
         }
     }
-
-    // Dilate the image by 2 pixels to allow bilinear texturing near seams.
-    // Note that this still allows seams when mipmapping, unless mipmap levels
-    // are generated very carefully.
-    for (int step = 0; step < 2; step++)
-    {
-        SharedArrayPtr<Color> tmp(new Color[lightmap_->GetWidth() * lightmap_->GetHeight()]);
-        memset (&tmp[0], 0, lightmap_->GetWidth() * lightmap_->GetHeight() * sizeof(Color));
-
-        for (int y = 0; y < lightmap_->GetHeight() ; y++)
-        {
-            for (int x = 0; x < lightmap_->GetWidth(); x++)
-            {
-                int center = x + y * lightmap_->GetWidth();
-
-                const LMLexel& lexel = lmLexels_[center];
-                const Vector3& norm = lexel.normal_;
-
-                tmp[center] = lexel.color_;
-
-                if (norm.x_ == 0 && norm.y_ == 0 && norm.z_ == 0 && lexel.color_ == Color::BLACK)
-                {
-                    for (int k = 0; k < 9; k++)
-                    {
-                        int i = (k / 3) - 1, j = (k % 3) - 1;
-
-                        if (i == 0 && j == 0)
-                        {
-                            continue;
-                        }
-
-                        i += x;
-                        j += y;
-
-                        if (i < 0 || j < 0 || i >= lightmap_->GetWidth() || j >=  lightmap_->GetHeight() )
-                        {
-                            continue;
-                        }
-
-                        const LMLexel& lexel2 = lmLexels_[i + j * lightmap_->GetWidth()];
-
-                        if (lexel2.color_ != Color::BLACK)
-                        {
-                            tmp[center] = lexel2.color_;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        for (unsigned i = 0; i < lmLexels_.Size(); i++)
-        {
-            lmLexels_[i].color_ = tmp[i];
-        }
-
-    }
-
 }
 
 bool StaticModelBaker::FillLexelsCallback(void* param, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage)
@@ -313,6 +319,9 @@ bool StaticModelBaker::FillLexelsCallback(void* param, int x, int y, const Vecto
     lexel.position_ = shaderData->triPositions_[0] * barycentric.x_ +
             shaderData->triPositions_[1] *  barycentric.y_ +
             shaderData->triPositions_[2] * barycentric.z_;
+
+    // TODO: ambient
+    lexel.color_ = Color(.6f, .6f, .6f);
 
     lexel.normal_ = shaderData->faceNormal_;
 
