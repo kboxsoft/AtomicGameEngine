@@ -1,4 +1,4 @@
-<technique vs="Vegetation" ps="LitSolid" psdefines="DIFFMAP ALPHAMASK" alphamask="true" >
+<technique vs="Vegetation" ps="LitSolidAlphaCutOff" psdefines="DIFFMAP ALPHAMASK" alphamask="true" >
     <pass name="base" />
     <pass name="litbase" psdefines="AMBIENT" />
     <pass name="light" depthtest="equal" depthwrite="false" blend="add" />

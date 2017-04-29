@@ -1,13 +1,13 @@
 <renderpath>
-    <rendertarget name="blurh" tag="DOF" sizedivisor="4 4" format="rgba" filter="true"/>
-    <rendertarget name="blurv" tag="DOF" sizedivisor="4 4" format="rgba" filter="true"/>
+    <rendertarget name="blurh" tag="DOF" sizedivisor="2 2" format="rgba" filter="true"/>
+    <rendertarget name="blurv" tag="DOF" sizedivisor="2 2" format="rgba" filter="true"/>
     <rendertarget name="depthBlur" tag="DOF" sizedivisor="1 1" format="r16" filter="true"/>
     <rendertarget name="framecopy" tag="DOF" sizedivisor="1 1" format="rgba" filter="true"/>
     <command type="quad" tag="DOF" vs="CopyFramebufferDof" ps="CopyFramebufferDof" blend="replace" output="depthBlur">        
         <parameter name="SmoothFocusEnabled" value="false"/>
         <parameter name="SmoothFocus" value="0.1" />
-        <parameter name="Focal" value="300" />
-        <parameter name="FocalNear" value="600" />
+        <parameter name="Focal" value="10" />
+        <parameter name="FocalNear" value="900" />
         <parameter name="FocalFar" value="10" />
         
         <texture unit="0" name="viewport" />
@@ -16,13 +16,13 @@
     <command type="quad" tag="Blur" vs="Blur" ps="Blur" psdefines="BLUR5" output="blurh">
         <parameter name="BlurDir" value="1.0 0.0" />
         <parameter name="BlurRadius" value="1.0" />
-        <parameter name="BlurSigma" value="3.0" />
+        <parameter name="BlurSigma" value="2.0" />
         <texture unit="diffuse" name="viewport" />
     </command>
     <command type="quad" tag="Blur" vs="Blur" ps="Blur" psdefines="BLUR5" output="blurv">
         <parameter name="BlurDir" value="0.0 1.0"/>
         <parameter name="BlurRadius" value="1.0"/>
-        <parameter name="BlurSigma" value="3.0"/>
+        <parameter name="BlurSigma" value="2.0"/>
         <texture unit="diffuse" name="blurh"/>
     </command>
     <command type="quad" tag="Blur" vs="Blur" ps="Blur" psdefines="BLUR3" output="blurh">

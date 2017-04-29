@@ -90,8 +90,8 @@ void AtomicPlayerApp::Setup()
     engineParameters_.InsertNew("ResourcePaths", "AtomicResources");
 #else
     engineParameters_.InsertNew("FullScreen", false);
-    engineParameters_.InsertNew("WindowWidth", 1280);
-    engineParameters_.InsertNew("WindowHeight", 720);
+    engineParameters_.InsertNew("WindowWidth", 1920);
+    engineParameters_.InsertNew("WindowHeight", 1080);
     engineParameters_.InsertNew("ResourcePaths", "AtomicResources");
 #endif
 

@@ -50,11 +50,15 @@ void VS()
     vec3 worldPos = GetWorldPos(modelMatrix);
     float height = worldPos.y - modelMatrix[1][3];
 
+    float randomness = mod(worldPos.x,2);
+    randomness *= randomness;
+
+
     float windStrength = max(height - cWindHeightPivot, 0.0) * cWindHeightFactor;
-    float windPeriod = cElapsedTime * cWindPeriod + dot(worldPos.xz, cWindWorldSpacing);
+    float windPeriod = cElapsedTime * cWindPeriod + dot(worldPos.xz, cWindWorldSpacing) * randomness;
     worldPos.x += windStrength * sin(windPeriod);
     worldPos.z -= windStrength * cos(windPeriod);
-
+    
     gl_Position = GetClipPos(worldPos);
     vNormal = GetWorldNormal(modelMatrix);
     vWorldPos = vec4(worldPos, GetDepth(gl_Position));
