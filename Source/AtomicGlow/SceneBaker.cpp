@@ -69,6 +69,7 @@ bool SceneBaker::Light()
     while (itr != staticModelBakers_.End())
     {
         (*itr)->TraceAORays(256, 0.5f);
+        (*itr)->TraceSunLight();
         (*itr)->ProcessLightmap();
         itr++;
     }

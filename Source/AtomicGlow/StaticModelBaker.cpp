@@ -62,22 +62,6 @@ StaticModelBaker::~StaticModelBaker()
 {
 }
 
-bool StaticModelBaker::FillLexelsCallback(void* param, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage)
-{
-    ShaderData* shaderData = (ShaderData*) param;
-    StaticModelBaker* bake = shaderData->baker_;
-
-    LMLexel& lexel = bake->lmLexels_[ y * bake->lightmap_->GetWidth() + x];
-
-    lexel.position_ = shaderData->triPositions_[0] * barycentric.x_ +
-            shaderData->triPositions_[1] *  barycentric.y_ +
-            shaderData->triPositions_[2] * barycentric.z_;
-
-    lexel.normal_ = shaderData->faceNormal_;
-
-    return true;
-}
-
 bool StaticModelBaker::AddToEmbreeScene()
 {
     RTCScene scene = sceneBaker_->GetRTCScene();
@@ -124,6 +108,60 @@ void StaticModelBaker::ProcessLightmap()
 
     String filename = ToString("/Users/jenge/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Textures/%s_AOBake.png", node_->GetName().CString());
     lightmap_->SavePNG(filename);
+}
+
+void StaticModelBaker::TraceSunLight()
+{
+    RTCScene scene = sceneBaker_->GetRTCScene();
+
+    const float E = 0.001f;
+
+    RTCRay ray;
+
+    Vector3 sunDir(0.6f, -1.0f, 0.8f);
+    sunDir = -sunDir;
+    sunDir.Normalize();
+
+    for (unsigned i = 0; i < lmLexels_.Size(); i++)
+    {
+        LMLexel& lexel = lmLexels_[i];
+
+        if (lexel.normal_ == Vector3::ZERO)
+            continue;
+
+        if (lexel.normal_.DotProduct(sunDir) < 0.0f)
+        {
+            continue;
+        }
+
+        ray.primID = RTC_INVALID_GEOMETRY_ID;
+        ray.instID = RTC_INVALID_GEOMETRY_ID;
+        ray.time = 0.f;
+
+        ray.org[0] = lexel.position_.x_;
+        ray.org[1] = lexel.position_.y_;
+        ray.org[2] = lexel.position_.z_;
+
+        ray.dir[0] = sunDir.x_;
+        ray.dir[1] = sunDir.y_;
+        ray.dir[2] = sunDir.z_;
+
+        ray.tnear = E;
+        ray.tfar = 100000.0f;
+
+        ray.mask = 0xFFFFFFFF;
+        ray.geomID = RTC_INVALID_GEOMETRY_ID;
+
+        rtcIntersect(scene, ray);
+
+        if (ray.geomID != RTC_INVALID_GEOMETRY_ID && ray.geomID != rtcTriMesh_)
+        {
+            lexel.color_ = Color(.6f, .6f, .6f);
+        }
+
+
+    }
+
 }
 
 void StaticModelBaker::TraceAORays(unsigned nsamples, float aoDepth, float multiply)
@@ -265,6 +303,21 @@ void StaticModelBaker::TraceAORays(unsigned nsamples, float aoDepth, float multi
 
 }
 
+bool StaticModelBaker::FillLexelsCallback(void* param, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage)
+{
+    ShaderData* shaderData = (ShaderData*) param;
+    StaticModelBaker* bake = shaderData->baker_;
+
+    LMLexel& lexel = bake->lmLexels_[ y * bake->lightmap_->GetWidth() + x];
+
+    lexel.position_ = shaderData->triPositions_[0] * barycentric.x_ +
+            shaderData->triPositions_[1] *  barycentric.y_ +
+            shaderData->triPositions_[2] * barycentric.z_;
+
+    lexel.normal_ = shaderData->faceNormal_;
+
+    return true;
+}
 
 bool StaticModelBaker::Preprocess()
 {
@@ -322,7 +375,7 @@ bool StaticModelBaker::Preprocess()
         for (unsigned j = 0; j < mpGeo->vertices_.Size(); j++)
         {
             vOut->position_ = wtransform * vIn->position_;
-            vOut->normal_ = wtransform * vIn->normal_;
+            vOut->normal_ = wtransform.Rotation() * vIn->normal_;
             vOut->uv0_ = vIn->uv0_;
             vOut->uv1_ = vIn->uv1_;
 
@@ -363,8 +416,8 @@ bool StaticModelBaker::Preprocess()
             lexel.color_ = Color::BLACK;
             lexel.pixelCoord_.x_ = x;
             lexel.pixelCoord_.y_ = y;
-            lexel.normal_ = Vector3(0, 0, 0);
-            lexel.position_ = Vector3(0, 0, 0);
+            lexel.normal_ = Vector3::ZERO;
+            lexel.position_ = Vector3::ZERO;
         }
     }
 
@@ -399,10 +452,18 @@ bool StaticModelBaker::Preprocess()
         triUV[1].y_ *= h;
         triUV[2].y_ *= h;
 
+        /*
         Vector3 A = shaderData.triPositions_[1] - shaderData.triPositions_[0];
         Vector3 B = shaderData.triPositions_[2] - shaderData.triPositions_[0];
         shaderData.faceNormal_ = A.CrossProduct(B);
         shaderData.faceNormal_.Normalize();
+        */
+
+        shaderData.faceNormal_ = shaderData.triNormals_[0];
+        shaderData.faceNormal_ += shaderData.triNormals_[1];
+        shaderData.faceNormal_ += shaderData.triNormals_[2];
+
+        shaderData.faceNormal_ /= 3.0f;
 
         Raster::DrawTriangle(true, extents, true, triUV, FillLexelsCallback, &shaderData );
 

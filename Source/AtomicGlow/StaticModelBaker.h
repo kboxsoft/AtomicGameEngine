@@ -49,6 +49,7 @@ class StaticModelBaker : public Object
     bool Preprocess();
 
     void TraceAORays(unsigned nsamples, float aoDepth, float multiply = 1.0f);
+    void TraceSunLight();
 
     void ProcessLightmap();
 
