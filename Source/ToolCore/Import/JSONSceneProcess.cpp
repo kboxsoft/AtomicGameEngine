@@ -802,6 +802,7 @@ bool JSONSceneProcess::ProcessComponent(Node* node, const JSONMeshRenderer* jmes
 
     if (lightmapIndex >= 0)
     {
+#ifdef __DISABLED
         LMStaticModel* lmstatic = node->CreateComponent<LMStaticModel>();
         staticModel = lmstatic;
 
@@ -817,6 +818,7 @@ bool JSONSceneProcess::ProcessComponent(Node* node, const JSONMeshRenderer* jmes
         Texture2D* texture = cache->GetResource<Texture2D>(lightmapName);
         assert(texture);
         lmstatic->SetLightmapTexure(texture);
+#endif
     }
     else
         staticModel = node->CreateComponent<StaticModel>();

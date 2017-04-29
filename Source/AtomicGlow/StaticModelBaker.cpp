@@ -1,17 +1,31 @@
+// Copyright (c) 2014-2017, THUNDERBEAST GAMES LLC All rights reserved
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+//
 
-#ifdef __DISABLED
-#include <embree2/rtcore.h>
-#include <embree2/rtcore_ray.h>
-#include <xmmintrin.h>
-#include <pmmintrin.h>
-#include <cmath>
-#include <cfloat>
-
-#include <Atomic/IO/Log.h>
+#include <Atomic/Core/StringUtils.h>
 #include <Atomic/Resource/Image.h>
-#include <Atomic/Resource/ResourceCache.h>
+#include <Atomic/Scene/Node.h>
 
-#include "ModelAOBake.h"
+#include "Raster.h"
+#include "SceneBaker.h"
+#include "StaticModelBaker.h"
 
 #ifdef __llvm__
 double omp_get_wtime() { return 1; }
@@ -21,42 +35,8 @@ int omp_get_thread_num() { return 1; }
 #include <omp.h>
 #endif
 
-
 namespace AtomicGlow
 {
-
-
-static inline void GetBarycentricCoordinates(const Vector2& p1, const Vector2& p2, const Vector2& p3, const Vector2& p, Vector3& out)
-{
-    out.x_ = out.y_ = 0.0f;
-
-    float denom = (-p1.x_ * p3.y_ - p2.x_ * p1.y_ + p2.x_ * p3.y_ + p1.y_ * p3.x_ + p2.y_ *p1.x_ - p2.y_ * p3.x_ );
-
-    if (fabs(denom) > M_EPSILON)
-    {
-        out.x_ = (p2.x_ * p3.y_ - p2.y_ * p3.x_ - p.x_ * p3.y_ + p3.x_ * p.y_ - p2.x_ * p.y_ + p2.y_ * p.x_) / denom;
-        out.y_ = -(-p1.x_ * p.y_ + p1.x_ * p3.y_ + p1.y_ * p.x_ - p.x_ * p3.y_ + p3.x_ * p.y_ - p1.y_ * p3.x_) / denom;
-    }
-
-    out.z_ = 1 - out.x_ - out.y_;
-
-}
-
-static inline int GetPixelCoordinate(float textureCoord, unsigned extent)
-{
-    if (!extent)
-        return 0;
-
-    int pixel = (int)(textureCoord * extent);
-
-    if (pixel < 0)
-        pixel = 0;
-
-    if (pixel >= (int) extent)
-        pixel = extent - 1;
-
-    return pixel;
-}
 
 // http://www.altdevblogaday.com/2012/05/03/generating-uniformly-distributed-points-on-sphere/
 static inline void GetRandomDirection(Vector3& result)
@@ -69,69 +49,45 @@ static inline void GetRandomDirection(Vector3& result)
     result.z_ = z;
 }
 
-ModelAOBake::ModelAOBake(Context* context) : Object(context),
-    numIndices_(0)
+StaticModelBaker::StaticModelBaker(Context* context, SceneBaker *sceneBaker, StaticModel *staticModel) : Object(context),
+    numIndices_(0),
+    rtcTriMesh_(0)
 {
-
+    sceneBaker_ = sceneBaker;
+    staticModel_ = staticModel;
+    node_ = staticModel_->GetNode();
 }
 
-ModelAOBake::~ModelAOBake()
+StaticModelBaker::~StaticModelBaker()
 {
-
 }
 
-/*
-unsigned ModelAOBake::GetImageSize(float pixelsPerUnit, bool powerOfTwo)
+bool StaticModelBaker::FillLexelsCallback(void* param, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage)
 {
-    if (!lmVertices_.Size())
-        return 0;
+    ShaderData* shaderData = (ShaderData*) param;
+    StaticModelBaker* bake = shaderData->baker_;
 
-    Vector2 tMin(999999, 999999);
-    Vector2 tMax(-999999, -999999);
+    LMLexel& lexel = bake->lmLexels_[ y * bake->lightmap_->GetWidth() + x];
 
-    Vector3 pMin(999999, 999999, 999999);
-    Vector3 pMax(-999999, -999999, -999999);
+    lexel.position_ = shaderData->triPositions_[0] * barycentric.x_ +
+            shaderData->triPositions_[1] *  barycentric.y_ +
+            shaderData->triPositions_[2] * barycentric.z_;
 
-    for (unsigned i = 0; i < lmVertices_.Size(); i++)
-    {
-        const LMVertex& v = lmVertices_[i];
+    lexel.normal_ = shaderData->faceNormal_;
 
-        if (tMin.x_ > v.uv1_.x_)
-            tMin.x_ = v.uv1_.x_;
-        if (tMin.y_ > v.uv1_.y_)
-            tMin.y_ = v.uv1_.y_;
-
-        if (tMax.x_ < v.uv1_.x_)
-            tMax.x_ = v.uv1_.x_;
-        if (tMax.y_ < v.uv1_.y_)
-            tMax.y_ = v.uv1_.y_;
-    }
-
-    ATOMIC_LOGINFOF("%f %f : %f %f", tMin.x_, tMin.y_, tMax.x_, tMax.y_);
-
-    return 0;
-
+    return true;
 }
-*/
 
-void ModelAOBake::TraceAORays(unsigned nsamples, float aoDepth, float multiply)
+bool StaticModelBaker::AddToEmbreeScene()
 {
-    // Intel says to do this, so we're doing it.
-    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
-    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
-
-    // Create the embree device and scene.
-    RTCDevice device = rtcNewDevice(NULL);
-    assert(device && "Unable to create embree device.");
-    RTCScene scene = rtcDeviceNewScene(device, RTC_SCENE_STATIC, RTC_INTERSECT1);
-    assert(scene);
+    RTCScene scene = sceneBaker_->GetRTCScene();
 
     // Create the embree mesh
-    uint32_t gid = rtcNewTriangleMesh(scene, RTC_GEOMETRY_STATIC, numIndices_ / 3, lmVertices_.Size());
+    rtcTriMesh_ = rtcNewTriangleMesh(scene, RTC_GEOMETRY_STATIC, numIndices_ / 3, lmVertices_.Size());
 
     // Populate vertices
 
-    float* vertices = (float*) rtcMapBuffer(scene, gid, RTC_VERTEX_BUFFER);
+    float* vertices = (float*) rtcMapBuffer(scene, rtcTriMesh_, RTC_VERTEX_BUFFER);
 
     for (unsigned i = 0; i < lmVertices_.Size(); i++)
     {
@@ -144,18 +100,35 @@ void ModelAOBake::TraceAORays(unsigned nsamples, float aoDepth, float multiply)
         vertices++;
     }
 
-    rtcUnmapBuffer(scene, gid, RTC_VERTEX_BUFFER);
+    rtcUnmapBuffer(scene, rtcTriMesh_, RTC_VERTEX_BUFFER);
 
-    uint32_t* triangles = (uint32_t*) rtcMapBuffer(scene, gid, RTC_INDEX_BUFFER);
+    uint32_t* triangles = (uint32_t*) rtcMapBuffer(scene, rtcTriMesh_, RTC_INDEX_BUFFER);
 
     for (size_t i = 0; i < numIndices_; i++)
     {
         *triangles++ = indices_[i];
     }
 
-    rtcUnmapBuffer(scene, gid, RTC_INDEX_BUFFER);
+    rtcUnmapBuffer(scene, rtcTriMesh_, RTC_INDEX_BUFFER);
 
-    rtcCommit(scene);
+    return true;
+}
+
+void StaticModelBaker::ProcessLightmap()
+{
+    for (unsigned i = 0; i < lmLexels_.Size(); i++)
+    {
+        const LMLexel& lexel = lmLexels_[i];
+        lightmap_->SetPixelInt(lexel.pixelCoord_.x_, lexel.pixelCoord_.y_, 0, lexel.color_.ToUInt());
+    }
+
+    String filename = ToString("/Users/jenge/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Textures/%s_AOBake.png", node_->GetName().CString());
+    lightmap_->SavePNG(filename);
+}
+
+void StaticModelBaker::TraceAORays(unsigned nsamples, float aoDepth, float multiply)
+{
+    RTCScene scene = sceneBaker_->GetRTCScene();
 
     // Iterate over each pixel in the light map, row by row.
     // ATOMIC_LOGINFOF("Rendering ambient occlusion (%d threads)...", omp_get_max_threads());
@@ -233,12 +206,6 @@ void ModelAOBake::TraceAORays(unsigned nsamples, float aoDepth, float multiply)
         }
     }
 
-
-    // Free all embree data.
-    rtcDeleteGeometry(scene, gid);
-    rtcDeleteScene(scene);
-    rtcDeleteDevice(device);
-
     // Dilate the image by 2 pixels to allow bilinear texturing near seams.
     // Note that this still allows seams when mipmapping, unless mipmap levels
     // are generated very carefully.
@@ -298,52 +265,37 @@ void ModelAOBake::TraceAORays(unsigned nsamples, float aoDepth, float multiply)
 
 }
 
-bool ModelAOBake::GenerateLexels()
+
+bool StaticModelBaker::Preprocess()
 {
+    bakeModel_ = GetSubsystem<BakeModelCache>()->GetBakeModel(staticModel_->GetModel());
 
-    return true;
-}
-
-bool ModelAOBake::FillLexelsCallback(void* param, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage)
-{
-    ShaderData* shaderData = (ShaderData*) param;
-    ModelAOBake* bake = shaderData->bake_;
-
-    LMLexel& lexel = bake->lmLexels_[ y * bake->lightmap_->GetWidth() + x];
-
-    lexel.position_ = shaderData->triPositions_[0] * barycentric.x_ +
-            shaderData->triPositions_[1] *  barycentric.y_ +
-            shaderData->triPositions_[2] * barycentric.z_;
-
-    lexel.normal_ = shaderData->faceNormal_;
-
-    return true;
-}
-
-bool ModelAOBake::GenerateLODLevelAOMap(MPLODLevel *lodLevel)
-{
-    curLOD_ = lodLevel;
-
-    if (curLOD_.Null())
+    if (bakeModel_.Null())
     {
-        curLOD_ = 0;
         return false;
     }
 
+    ModelPacker* modelPacker = bakeModel_->GetModelPacker();
+
+    if (modelPacker->lodLevels_.Size() < 1)
+    {
+        return false;
+    }
+
+    MPLODLevel* lodLevel = modelPacker->lodLevels_[0];
+
     // LOD must have LM coords
 
-    if (!curLOD_->HasElement(TYPE_VECTOR2, SEM_TEXCOORD, 1))
+    if (!lodLevel->HasElement(TYPE_VECTOR2, SEM_TEXCOORD, 1))
     {
-        curLOD_ = 0;
         return false;
     }
 
     unsigned totalVertices = 0;
-    curLOD_->GetTotalCounts(totalVertices, numIndices_);
+    lodLevel->GetTotalCounts(totalVertices, numIndices_);
 
     if (!totalVertices || ! numIndices_)
     {
-        curLOD_ = 0;
         return false;
     }
 
@@ -357,9 +309,11 @@ bool ModelAOBake::GenerateLODLevelAOMap(MPLODLevel *lodLevel)
     unsigned vertexStart = 0;
     unsigned indexStart = 0;
 
-    for (unsigned i = 0; i < curLOD_->mpGeometry_.Size(); i++)
+    const Matrix3x4& wtransform = node_->GetWorldTransform();
+
+    for (unsigned i = 0; i < lodLevel->mpGeometry_.Size(); i++)
     {
-        MPGeometry* mpGeo = curLOD_->mpGeometry_[i];
+        MPGeometry* mpGeo = lodLevel->mpGeometry_[i];
 
         // Copy Vertices
 
@@ -367,8 +321,8 @@ bool ModelAOBake::GenerateLODLevelAOMap(MPLODLevel *lodLevel)
 
         for (unsigned j = 0; j < mpGeo->vertices_.Size(); j++)
         {
-            vOut->position_ = vIn->position_;
-            vOut->normal_ = vIn->normal_;
+            vOut->position_ = wtransform * vIn->position_;
+            vOut->normal_ = wtransform * vIn->normal_;
             vOut->uv0_ = vIn->uv0_;
             vOut->uv1_ = vIn->uv1_;
 
@@ -389,9 +343,13 @@ bool ModelAOBake::GenerateLODLevelAOMap(MPLODLevel *lodLevel)
 
     lightmap_ = new Image(context_);
 
+    unsigned lmSize = staticModel_->GetLightmapSize() ? staticModel_->GetLightmapSize() : 256;
+
+    if (lmSize > 4096)
+        lmSize = 4096;
+
     unsigned w, h;
-    w = 4096;
-    h = 4096;
+    w = h = lmSize;
 
     lightmap_->SetSize(w, h, 2, 3);
 
@@ -417,7 +375,7 @@ bool ModelAOBake::GenerateLODLevelAOMap(MPLODLevel *lodLevel)
 
     ShaderData shaderData;
 
-    shaderData.bake_ = this;
+    shaderData.baker_ = this;
 
     for (unsigned i = 0; i < numIndices_; i += 3)
     {
@@ -450,48 +408,9 @@ bool ModelAOBake::GenerateLODLevelAOMap(MPLODLevel *lodLevel)
 
     }
 
-
-    // Raytrace
-
-    TraceAORays(256, 3.0f);
-
-    for (unsigned i = 0; i < lmLexels_.Size(); i++)
-    {
-        const LMLexel& lexel = lmLexels_[i];
-        lightmap_->SetPixelInt(lexel.pixelCoord_.x_, lexel.pixelCoord_.y_, 0, lexel.color_.ToUInt());
-    }
-
-    lightmap_->SavePNG("/Users/jenge/Dev/atomic/AtomicExamplesPrivate/AtomicSponza/Resources/Textures/sponza2_lmWorldSpaceTexture.png");
-
-
-    // GetImageSize(32, false);
-
-    curLOD_ = 0;
-
-    return true;
-}
-
-bool ModelAOBake::LoadModel(const String& pathName)
-{
-    ResourceCache* cache = GetSubsystem<ResourceCache>();
-
-    Model* model = cache->GetResource<Model>(pathName);
-
-    if (!model)
-        return false;
-
-    modelPacker_ = new ModelPacker(context_);
-
-    if (!modelPacker_->Unpack(model))
-        return false;
-
-    for (unsigned i = 0; i < modelPacker_->lodLevels_.Size(); i++)
-    {
-        GenerateLODLevelAOMap(modelPacker_->lodLevels_[i]);
-    }
+    AddToEmbreeScene();
 
     return true;
 }
 
 }
-#endif

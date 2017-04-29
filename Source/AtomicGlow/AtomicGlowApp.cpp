@@ -29,9 +29,12 @@
 #include <ToolCore/ToolSystem.h>
 #include <ToolCore/ToolEnvironment.h>
 
-#include "ModelAOBake.h"
+#include "BakeModel.h"
+#include "SceneBaker.h"
 
 #include "AtomicGlowApp.h"
+
+using namespace ToolCore;
 
 #ifdef ATOMIC_PLATFORM_OSX
 #include <unistd.h>
@@ -120,19 +123,23 @@ namespace AtomicGlow
 
     void AtomicGlowApp::HandleUpdate(StringHash eventType, VariantMap& eventData)
     {
+        SharedPtr<SceneBaker> baker(new SceneBaker(context_));
+        baker->LoadScene("Scenes/Scene.scene");
+        baker->Preprocess();
+        baker->Light();
 
+        /*
         SharedPtr<ModelAOBake> baker(new ModelAOBake(context_));
-        baker->LoadModel("f909831f7146c7108bfebdc0996714b5.mdl");
+        baker->LoadModel("3a355752e1e005ca5c1347340669eaa7.mdl");
+        */
 
-        //exitCode_ = EXIT_SUCCESS;
-        //engine_->Exit();
+        exitCode_ = EXIT_SUCCESS;
+        engine_->Exit();
     }
 
 
     void AtomicGlowApp::Start()
     {
-        Setup();
-
         if (exitCode_)
             return;
 
@@ -142,7 +149,7 @@ namespace AtomicGlow
             return;
         }
 
-        // IPCClientApp::Start();
+        context_->RegisterSubsystem(new BakeModelCache(context_));
 
     }
 

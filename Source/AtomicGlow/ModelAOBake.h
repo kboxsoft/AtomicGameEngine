@@ -1,6 +1,8 @@
 
 #pragma once
 
+#ifdef __DISABLED
+
 #include <ToolCore/Import/ModelPacker.h>
 #include "Raster.h"
 
@@ -79,3 +81,5 @@ private:
 };
 
 }
+
+#endif
