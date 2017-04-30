@@ -29,6 +29,7 @@
 #include "TreeBillboardSet.h"
 #include "StaticModelEx.h"
 #include "SmoothFocus.h"
+#include "Water.h"
 
 namespace Atomic
 {
@@ -42,6 +43,7 @@ void RegisterEnvironmentLibrary(Context* context)
 	TreeBillboardSet::RegisterObject(context);
 	StaticModelEx::RegisterObject(context);
 	SmoothFocus::RegisterObject(context);
+	Water::RegisterObject(context);
 }
 
 }

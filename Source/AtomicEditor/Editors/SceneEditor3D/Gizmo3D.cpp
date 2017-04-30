@@ -33,6 +33,8 @@
 #include "SceneSelection.h"
 #include "SceneEditor3D.h"
 #include "Gizmo3D.h"
+#include "Atomic\Graphics\Terrain.h"
+#include "Atomic\IO\Log.h"
 
 namespace AtomicEditor
 {
@@ -87,7 +89,62 @@ void Gizmo3D::Position()
     bool containsScene = false;
 
     Vector<SharedPtr<Node>>& editNodes = selection_->GetNodes();
+	//start query
+	Input* input = GetSubsystem<Input>();
+	Ray camRay = view3D_->GetCameraRay();
+	PODVector<RayQueryResult> result_;
+	if (input->GetKeyDown(Atomic::KEY_L)) {
 
+		RayOctreeQuery query(result_, camRay, RAY_TRIANGLE, view3D_->GetCamera()->GetFarClip(), DRAWABLE_GEOMETRY);
+		view3D_->GetOctree()->Raycast(query);
+
+		Vector3 cursorPosition_;
+		bool setToGround = false;
+
+		if (query.result_.Size())
+		{
+
+			for (int n = 0; n < result_.Size(); n++)
+			{
+				const RayQueryResult& r = result_[n];
+				if (r.drawable_->GetType() == Atomic::TerrainPatch::GetTypeStatic())
+				{
+
+					TerrainPatch* patch = (TerrainPatch*)r.drawable_;
+					Terrain* terrain_ = patch->GetOwner();
+
+					Vector3 cursorPosition_ = r.position_;
+					float height = terrain_->GetHeight(Vector3(cursorPosition_.x_, cursorPosition_.y_, cursorPosition_.z_));
+					cursorPosition_ = Vector3(cursorPosition_.x_, height, cursorPosition_.z_);
+
+					for (unsigned i = 0; i < editNodes.Size(); ++i)
+					{
+						// Scene's transform should not be edited, so hide gizmo if it is included
+						if (editNodes[i] == scene_)
+						{
+							containsScene = true;
+							break;
+						}
+						editNodes[i]->SetWorldPosition(cursorPosition_);
+						Vector3 normal = terrain_->GetNormal(cursorPosition_);
+						Quaternion q = editNodes[i]->GetRotation();
+					//	q.FromLookRotation((terrain_->GetNode()->GetWorldPosition() - editNodes[i]->GetWorldPosition()), normal);
+						q.FromLookRotation(Vector3::FORWARD, normal);
+						Vector3 fwd = editNodes[i]->GetDirection().FORWARD;
+						Vector3 proj = fwd - fwd.DotProduct(normal) * normal;
+						q.FromLookRotation(proj, normal);
+						//q.FromLookRotation(editNodes[i]->GetDirection(), normal);
+						editNodes[i]->SetRotation(q);
+						return;
+						//ATOMIC_LOGDEBUG("New  pos: " + cursorPosition_.ToString());
+					}
+
+					break;
+				}
+			}
+		}
+	}
+	//end query
     for (unsigned i = 0; i < editNodes.Size(); ++i)
     {
         // Scene's transform should not be edited, so hide gizmo if it is included
