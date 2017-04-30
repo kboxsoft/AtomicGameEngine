@@ -21,64 +21,65 @@
 
 #pragma once
 
-#include <ToolCore/Import/ModelPacker.h>
+#include <Atomic/Resource/Image.h>
+#include <Atomic/Graphics/Material.h>
 
-using namespace ToolCore;
+using namespace Atomic;
 
 namespace AtomicGlow
 {
 
-struct LMVertex
+class BakeMaterial : public Object
 {
-    Vector3 position_;
-    Vector3 normal_;
-    Vector2 uv0_;
-    Vector2 uv1_;
-};
-
-struct LMLexel
-{
-    Vector3 position_;
-    Vector3 normal_;
-    Vector2 pixelCoord_;
-    Color color_;
-    Color diffuseColor_;
-};
-
-class BakeModel : public Object
-{
-    ATOMIC_OBJECT(BakeModel, Object)
+    ATOMIC_OBJECT(BakeMaterial, Object)
 
     public:
 
-    BakeModel(Context* context);
-    virtual ~BakeModel();
+    BakeMaterial(Context* context);
+    virtual ~BakeMaterial();
 
-    bool LoadModel(Model* model);
+    bool LoadMaterial(Material* material);
 
-    ModelPacker* GetModelPacker() { return modelPacker_; }
+    Material* GetMaterial() { return material_; }
+
+    Image* GetDiffuseTexture() const { return diffuseTexture_; }
+
+    const Vector4& GetUOffset() const { return uoffset_; }
+    const Vector4& GetVOffset() const { return voffset_; }
 
 private:
 
-    SharedPtr<ModelPacker> modelPacker_;
+    Variant ParseShaderParameterValue(const String& value);
+
+    SharedPtr<Material> material_;
+
+    // parameters which are loaded out of material xml
+    // as we don't load material in headless graphics mode
+
+    SharedPtr<Image> diffuseTexture_;
+
+    Vector4 uoffset_;
+    Vector4 voffset_;
 
 };
 
-class BakeModelCache : public Object
+class BakeMaterialCache : public Object
 {
-    ATOMIC_OBJECT(BakeModelCache, Object)
+    friend class BakeMaterial;
+
+    ATOMIC_OBJECT(BakeMaterialCache, Object)
 
     public:
 
-    BakeModelCache(Context* context);
-    virtual ~BakeModelCache();
+    BakeMaterialCache(Context* context);
+    virtual ~BakeMaterialCache();
 
-    BakeModel* GetBakeModel(Model* model);
+    BakeMaterial* GetBakeMaterial(Material* material);
 
 private:
 
-    /// Model->GetName -> BakeModel
-    HashMap<StringHash, SharedPtr<BakeModel>> bakeCache_;
+    /// Material->GetName -> BakeMaterial
+    HashMap<StringHash, SharedPtr<BakeMaterial>> bakeCache_;
 
 };
 

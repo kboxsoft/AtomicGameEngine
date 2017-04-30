@@ -20,8 +20,11 @@
 //
 
 #include <Atomic/Core/StringUtils.h>
+#include <Atomic/IO/Log.h>
 #include <Atomic/Resource/Image.h>
+#include <Atomic/Graphics/Material.h>
 #include <Atomic/Scene/Node.h>
+
 
 #include "Raster.h"
 #include "SceneBaker.h"
@@ -51,7 +54,7 @@ static inline void GetRandomDirection(Vector3& result)
 
 StaticModelBaker::StaticModelBaker(Context* context, SceneBaker *sceneBaker, StaticModel *staticModel) : Object(context),
     numIndices_(0),
-    rtcTriMesh_(0)
+    rtcGeomID_(0)
 {
     sceneBaker_ = sceneBaker;
     staticModel_ = staticModel;
@@ -62,16 +65,48 @@ StaticModelBaker::~StaticModelBaker()
 {
 }
 
+void StaticModelBaker::MyRTCFilterFunc(void* ptr, RTCRay& ray)
+{
+    StaticModelBaker* baker = static_cast<StaticModelBaker*>(ptr);
+
+    Triangle* tri = &baker->triangles_[ray.primID];
+
+    BakeMaterial* material = baker->bakeMaterials_[tri->materialIndex_];
+
+    Image* diffuse = material->GetDiffuseTexture();
+
+    const Vector2& st0 = tri->uv0_[0];
+    const Vector2& st1 = tri->uv0_[1];
+    const Vector2& st2 = tri->uv0_[2];
+
+    const float u = ray.u, v = ray.v, w = 1.0f-ray.u-ray.v;
+
+    const Vector2 st = w*st0 + u*st1 + v*st2;
+
+    int x = diffuse->GetWidth() * st.x_;
+    int y = diffuse->GetHeight() * st.y_;
+
+    Color color = diffuse->GetPixel(x, y);
+
+    if (color.a_ < 1.0f)
+    {
+        ray.geomID = RTC_INVALID_GEOMETRY_ID;
+    }
+
+}
+
 bool StaticModelBaker::AddToEmbreeScene()
 {
     RTCScene scene = sceneBaker_->GetRTCScene();
 
     // Create the embree mesh
-    rtcTriMesh_ = rtcNewTriangleMesh(scene, RTC_GEOMETRY_STATIC, numIndices_ / 3, lmVertices_.Size());
+    rtcGeomID_ = rtcNewTriangleMesh(scene, RTC_GEOMETRY_STATIC, numIndices_ / 3, lmVertices_.Size());
+    rtcSetUserData(scene, rtcGeomID_, this);
+    rtcSetOcclusionFilterFunction(scene, rtcGeomID_, MyRTCFilterFunc);
 
     // Populate vertices
 
-    float* vertices = (float*) rtcMapBuffer(scene, rtcTriMesh_, RTC_VERTEX_BUFFER);
+    float* vertices = (float*) rtcMapBuffer(scene, rtcGeomID_, RTC_VERTEX_BUFFER);
 
     for (unsigned i = 0; i < lmVertices_.Size(); i++)
     {
@@ -84,16 +119,16 @@ bool StaticModelBaker::AddToEmbreeScene()
         vertices++;
     }
 
-    rtcUnmapBuffer(scene, rtcTriMesh_, RTC_VERTEX_BUFFER);
+    rtcUnmapBuffer(scene, rtcGeomID_, RTC_VERTEX_BUFFER);
 
-    uint32_t* triangles = (uint32_t*) rtcMapBuffer(scene, rtcTriMesh_, RTC_INDEX_BUFFER);
+    uint32_t* triangles = (uint32_t*) rtcMapBuffer(scene, rtcGeomID_, RTC_INDEX_BUFFER);
 
     for (size_t i = 0; i < numIndices_; i++)
     {
         *triangles++ = indices_[i];
     }
 
-    rtcUnmapBuffer(scene, rtcTriMesh_, RTC_INDEX_BUFFER);
+    rtcUnmapBuffer(scene, rtcGeomID_, RTC_INDEX_BUFFER);
 
     return true;
 }
@@ -211,7 +246,7 @@ void StaticModelBaker::TraceSunLight()
 
         rtcOccluded(scene, ray);
 
-        if (ray.geomID != 0)//  || ray.geomID == rtcTriMesh_)
+        if (ray.geomID != 0)
         {
             lexel.color_ = Color(1.0f, 1.0f, 1.0f);
         }
@@ -313,23 +348,78 @@ bool StaticModelBaker::FillLexelsCallback(void* param, int x, int y, const Vecto
 {
     ShaderData* shaderData = (ShaderData*) param;
     StaticModelBaker* bake = shaderData->baker_;
+    Triangle* tri = shaderData->triangle_;
 
     LMLexel& lexel = bake->lmLexels_[ y * bake->lightmap_->GetWidth() + x];
+
 
     lexel.position_ = shaderData->triPositions_[0] * barycentric.x_ +
             shaderData->triPositions_[1] *  barycentric.y_ +
             shaderData->triPositions_[2] * barycentric.z_;
 
+    lexel.normal_ = shaderData->faceNormal_;
+
     // TODO: ambient
     lexel.color_ = Color(.6f, .6f, .6f);
 
-    lexel.normal_ = shaderData->faceNormal_;
+    Image* diffuse = shaderData->bakeMaterial_->GetDiffuseTexture();
+
+    if (diffuse)
+    {
+        Vector2 uv[3];
+
+        float width = diffuse->GetWidth();
+        float height = diffuse->GetHeight();
+
+        uv[0].x_ = tri->uv0_[0].x_ * width;
+        uv[0].y_ = tri->uv0_[0].y_ * height;
+
+        uv[1].x_ = tri->uv0_[1].x_ * width;
+        uv[1].y_ = tri->uv0_[1].y_ * height;
+
+        uv[2].x_ = tri->uv0_[2].x_ * width;
+        uv[2].y_ = tri->uv0_[2].y_ * height;
+
+        float u = barycentric.x_ * uv[0].x_ + barycentric.y_ * uv[1].x_ + barycentric.z_ * uv[2].x_;
+        float v = barycentric.x_ * uv[0].y_ + barycentric.y_ * uv[1].y_ + barycentric.z_ * uv[2].y_;
+
+        const Vector4& uoffset = shaderData->bakeMaterial_->GetUOffset();
+        const Vector4& voffset = shaderData->bakeMaterial_->GetVOffset();
+
+        u *= uoffset.x_;
+        u += uoffset.z_;
+
+        v *= voffset.y_;
+        v += voffset.w_;
+
+        if (u < 0.0f)
+        {
+            unsigned uu = fabs(u);
+            uu %= (unsigned) width;
+            u = width - uu;
+        }
+
+        if (v < 0.0f)
+        {
+            unsigned vv = fabs(v);
+            vv %= (unsigned) height;
+            v = height - vv;
+        }
+
+
+        int px = ((unsigned) u) % (unsigned) width;
+        int py = ((unsigned) v) % (unsigned) height;
+
+        lexel.diffuseColor_ = diffuse->GetPixel(px, py);
+
+    }
 
     return true;
 }
 
 bool StaticModelBaker::Preprocess()
 {
+
     bakeModel_ = GetSubsystem<BakeModelCache>()->GetBakeModel(staticModel_->GetModel());
 
     if (bakeModel_.Null())
@@ -361,10 +451,25 @@ bool StaticModelBaker::Preprocess()
         return false;
     }
 
+    // materials
+
+    if (staticModel_->GetNumGeometries() != lodLevel->mpGeometry_.Size())
+    {
+        ATOMIC_LOGERROR("StaticModelBaker::Preprocess() - Geometry mismatch");
+        return false;
+    }
+
+    for (unsigned i = 0; i < staticModel_->GetNumGeometries(); i++)
+    {
+        BakeMaterial* bakeMaterial = GetSubsystem<BakeMaterialCache>()->GetBakeMaterial(staticModel_->GetMaterial(i));
+        bakeMaterials_.Push(bakeMaterial);
+    }
+
     // allocate
 
     lmVertices_.Resize(totalVertices);
     indices_ = new unsigned[numIndices_];
+    triangles_.Resize(numIndices_/3);
 
     LMVertex* vOut = &lmVertices_[0];
 
@@ -396,6 +501,12 @@ bool StaticModelBaker::Preprocess()
 
         for (unsigned j = 0; j < mpGeo->numIndices_; j++)
         {
+            if (!(j % 3))
+            {
+                Triangle* tri = &triangles_[j/3];
+                tri->materialIndex_ = i;
+            }
+
             indices_[j + indexStart] = mpGeo->indices_[j] + vertexStart;
         }
 
@@ -423,6 +534,7 @@ bool StaticModelBaker::Preprocess()
         {
             LMLexel& lexel = lmLexels_[y * w + x];
             lexel.color_ = Color::BLACK;
+            lexel.diffuseColor_ = Color::BLACK;
             lexel.pixelCoord_.x_ = x;
             lexel.pixelCoord_.y_ = y;
             lexel.normal_ = Vector3::ZERO;
@@ -441,6 +553,17 @@ bool StaticModelBaker::Preprocess()
 
     for (unsigned i = 0; i < numIndices_; i += 3)
     {
+        // Setup triangle
+        Triangle* tri = &triangles_[i/3];
+
+        tri->uv0_[0] = lmVertices_[indices_[i]].uv0_;
+        tri->uv0_[1] = lmVertices_[indices_[i + 1]].uv0_;
+        tri->uv0_[2] = lmVertices_[indices_[i + 2]].uv0_;
+
+        shaderData.triangle_ = tri;
+
+        shaderData.bakeMaterial_ = bakeMaterials_[tri->materialIndex_];
+
         shaderData.triPositions_[0] = lmVertices_[indices_[i]].position_;
         shaderData.triPositions_[1] = lmVertices_[indices_[i + 1]].position_;
         shaderData.triPositions_[2] = lmVertices_[indices_[i + 2]].position_;

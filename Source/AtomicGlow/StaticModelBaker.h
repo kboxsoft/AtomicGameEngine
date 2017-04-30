@@ -23,6 +23,7 @@
 
 #include <Atomic/Graphics/StaticModel.h>
 
+#include "BakeMaterial.h"
 #include "BakeModel.h"
 
 namespace Atomic
@@ -49,28 +50,40 @@ class StaticModelBaker : public Object
     bool Preprocess();
 
     void TraceAORays(unsigned nsamples, float aoDepth, float multiply = 1.0f);
-    void TraceSunLight();
+    void TraceSunLight();    
 
     void ProcessLightmap();
 
 private:
 
-    static bool FillLexelsCallback(void* param, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage);
-
     bool AddToEmbreeScene();
 
-    struct ShaderData
+    static bool FillLexelsCallback(void* param, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage);    
+
+    static void MyRTCFilterFunc(void* ptr, RTCRay& ray);
+
+    struct Triangle
     {
+        unsigned materialIndex_;
+        Vector2 uv0_[3];
+    };
+
+    struct ShaderData
+    {        
         StaticModelBaker* baker_;
+        Triangle* triangle_;
         Vector3 triPositions_[3];
         Vector3 triNormals_[3];
         Vector3 faceNormal_;
+        BakeMaterial* bakeMaterial_;
     };
 
     SharedPtr<Image> lightmap_;
 
-    SharedArrayPtr<unsigned> indices_;
+    SharedArrayPtr<unsigned> indices_;    
     unsigned numIndices_;
+
+    PODVector<Triangle> triangles_;
 
     PODVector<LMVertex> lmVertices_;
     PODVector<LMLexel> lmLexels_;
@@ -81,7 +94,11 @@ private:
 
     WeakPtr<SceneBaker> sceneBaker_;
 
-    uint32_t rtcTriMesh_;
+    uint32_t rtcGeomID_;
+
+    // geometry bake materials
+    PODVector<BakeMaterial*> bakeMaterials_;
+
 
 };
 

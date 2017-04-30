@@ -30,6 +30,7 @@
 #include <ToolCore/ToolEnvironment.h>
 
 #include "BakeModel.h"
+#include "BakeMaterial.h"
 #include "SceneBaker.h"
 
 #include "AtomicGlowApp.h"
@@ -149,6 +150,7 @@ namespace AtomicGlow
             return;
         }
 
+        context_->RegisterSubsystem(new BakeMaterialCache(context_));
         context_->RegisterSubsystem(new BakeModelCache(context_));
 
     }
