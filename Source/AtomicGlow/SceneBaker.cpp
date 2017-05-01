@@ -180,10 +180,55 @@ void SceneBaker::EmitLightmap(int lightMapIndex)
         rect++;
     }
 
+    FilterLightmap(image);
     String filename = ToString("/Users/jenge/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Textures/Scene_Lightmap%i.png", lightMapIndex);
     image->SavePNG(filename);
 
     workingSet_.Clear();
+
+}
+
+void SceneBaker::FilterLightmap(Image* lightmap)
+{
+    // Box 3x3 Filter
+
+    SharedPtr<Image> tmp(new Image(context_));
+    tmp->SetSize(lightmap->GetWidth(), lightmap->GetHeight(), lightmap->GetComponents());
+    tmp->Clear(Color::BLACK);
+
+    for (int y = 0; y < lightmap->GetHeight(); y++)
+    {
+        for (int x = 0; x < lightmap->GetWidth(); x++)
+        {
+            Color color = lightmap->GetPixel(x-1, y);
+            color += lightmap->GetPixel(x, y);
+            color += lightmap->GetPixel(x+1, y);
+
+            color.r_ /= 3.0f;
+            color.g_ /= 3.0f;
+            color.b_ /= 3.0f;
+
+            tmp->SetPixel(x, y, color);
+        }
+    }
+
+    for (int y = 0; y < lightmap->GetHeight(); y++)
+    {
+        for (int x = 0; x < lightmap->GetWidth(); x++)
+        {
+            Color color = tmp->GetPixel(x, y-1);
+            color += tmp->GetPixel(x, y);
+            color += tmp->GetPixel(x, y+1);
+
+            color.r_ /= 3.0f;
+            color.g_ /= 3.0f;
+            color.b_ /= 3.0f;
+
+            lightmap->SetPixel(x, y, color);
+
+        }
+
+    }
 
 }
 
@@ -203,7 +248,7 @@ bool SceneBaker::Light()
             continue;
         }
 
-        //baker->TraceAORays(256, 1.0f);
+        //bakeModel->TraceAORays(256, 1.0f);
         bakeModel->TraceSunLight();
         bakeModel->ProcessLightmap();
         itr++;
@@ -223,6 +268,7 @@ bool SceneBaker::Light()
         if (lightmap->GetWidth() >= LIGHTMAP_WIDTH || lightmap->GetHeight() >= LIGHTMAP_HEIGHT)
         {
             String filename = ToString("/Users/jenge/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Textures/Scene_Lightmap%i.png", lightmapIndex);
+            FilterLightmap(lightmap);
             lightmap->SavePNG(filename);
 
             bakeModel->SetLightmapPacked(true);

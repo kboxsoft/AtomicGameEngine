@@ -60,6 +60,7 @@ class SceneBaker : public Object
 
 private:
 
+    void FilterLightmap(Image* lightmap);
     void EmitLightmap(int lightMapIndex);
 
     bool TryAddStaticModelBaker(StaticModelBaker *bakeModel);
