@@ -4,6 +4,7 @@
     <!-- The engine will automatically assign the refraction (viewport) texture to the environment unit during refract pass -->
     <technique name="Techniques/DeepWater.xml" />
     <texture unit="normal" name="Textures/WaterNoise.dds" />
+    <texture unit="emissive" name="Textures/foam.dds" />
     <parameter name="NoiseSpeed" value="0.02 0.012" />
     <parameter name="NoiseTiling" value="10" />
     <parameter name="NoiseStrength" value="0.2" />

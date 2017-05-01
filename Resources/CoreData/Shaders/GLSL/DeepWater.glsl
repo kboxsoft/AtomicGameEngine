@@ -62,16 +62,15 @@ void VS()
     vReflectUV *= gl_Position.w;
     vWaterUV = iTexCoord * cNoiseTiling + cElapsedTime * cNoiseSpeed;
     vEyeVec = cCameraPos - worldPos;
-     
     #ifdef PERPIXEL
         // Per-pixel forward lighting
         vec4 projWorldPos = vec4(worldPos, 1.0);
             
-        vec3 tangent = GetWorldTangent(modelMatrix);
+        vec3 tangent = GetWorldTangent(modelMatrix).xyz;
         vec3 bitangent = cross(tangent, vNormal) * iTangent.w;
-        vTexCoord = vec4(GetTexCoord(iTexCoord * cNoiseTiling + cElapsedTime * cNoiseSpeed), bitangent.xy);
+        vTexCoord = vec4(GetTexCoord(iTexCoord.xy * cNoiseTiling + cElapsedTime * cNoiseSpeed), bitangent.xy);
         vTexCoord2 = vec4(GetTexCoord(iTexCoord.yx * cNoiseTiling - cElapsedTime * cNoiseSpeed), bitangent.xy);
-        vTangent = vec4(tangent, bitangent.z);
+        vTangent = vec4(tangent.xyz, bitangent.z);
 
         #ifdef SPOTLIGHT
             // Spotlight projection: transform from world space to projector texture coordinates

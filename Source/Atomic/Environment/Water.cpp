@@ -109,7 +109,14 @@ void Water::HandleSceneUpdate(StringHash eventType, VariantMap& eventData)
 		Zone *zone = scene_->GetComponent<Zone>(true);
 		if (zone)
 		{
-			if (cameraNode_->GetPosition().y_ < waterNode_->GetPosition().y_)
+			Vector3 camPos = cameraNode_->GetPosition();
+			Vector3 waterPos = waterNode_->GetPosition();
+			StaticModel* water = waterNode_->GetComponent<StaticModel>();
+			BoundingBox bounds = water->GetWorldBoundingBox();
+			//We need the camera to be under the water plane but also within its x / z dimensions.
+			if (camPos.y_ < waterPos.y_
+				&& camPos.x_ < bounds.max_.x_ && camPos.z_ < bounds.max_.z_
+				&& camPos.x_ > bounds.min_.x_ && camPos.z_ > bounds.min_.z_)
 			{
 				zone->SetFogStart(0);
 				zone->SetFogEnd(200);
