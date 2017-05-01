@@ -52,6 +52,9 @@ class SceneBaker : public Object
     RTCDevice GetRTCDevice() const { return rtcDevice_; }
     RTCScene GetRTCScene() const { return rtcScene_; }
 
+    //TODO: remove me, temporary sunlight info for testing
+    Vector3 sunDir_;
+
 private:
 
     SharedPtr<Scene> scene_;
@@ -60,6 +63,7 @@ private:
 
     RTCDevice rtcDevice_;
     RTCScene rtcScene_;
+
 
 };
 

@@ -212,9 +212,7 @@ void StaticModelBaker::TraceSunLight()
 
     RTCRay ray;
 
-    Vector3 sunDir(0.6f, -1.0f, 0.8f);
-    sunDir = -sunDir;
-    sunDir.Normalize();
+    Vector3 sunDir = sceneBaker_->sunDir_;
 
     for (unsigned i = 0; i < lmLexels_.Size(); i++)
     {

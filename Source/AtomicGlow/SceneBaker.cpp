@@ -28,6 +28,7 @@
 
 #include <Atomic/IO/Log.h>
 #include <Atomic/Resource/ResourceCache.h>
+#include <Atomic/Graphics/Light.h>
 #include <Atomic/Graphics/StaticModel.h>
 
 #include "BakeModel.h"
@@ -198,6 +199,25 @@ bool SceneBaker::LoadScene(const String& filename)
     {
         scene_ = 0;
         return false;
+    }
+
+
+    sunDir_ = Vector3(-0.6f, 1.0f, -0.8f);
+    sunDir_.Normalize();
+
+    PODVector<Node*> lightNodes;
+    scene_->GetChildrenWithComponent<Atomic::Light>(lightNodes, true);
+
+    for (unsigned i = 0; i < lightNodes.Size(); i++)
+    {
+        Atomic::Light* light = lightNodes[i]->GetComponent<Atomic::Light>();
+
+        if (light->GetLightType() == LIGHT_DIRECTIONAL)
+        {
+            sunDir_ = lightNodes[i]->GetDirection();
+            sunDir_ = -sunDir_;
+            sunDir_.Normalize();
+        }
     }
 
     PODVector<StaticModel*> staticModels;
