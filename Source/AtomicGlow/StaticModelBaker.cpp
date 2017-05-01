@@ -54,7 +54,8 @@ static inline void GetRandomDirection(Vector3& result)
 
 StaticModelBaker::StaticModelBaker(Context* context, SceneBaker *sceneBaker, StaticModel *staticModel) : Object(context),
     numIndices_(0),
-    rtcGeomID_(0)
+    rtcGeomID_(0),
+    lightmapPacked_(false)
 {
     sceneBaker_ = sceneBaker;
     staticModel_ = staticModel;

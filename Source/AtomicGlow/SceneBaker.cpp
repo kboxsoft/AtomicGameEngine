@@ -65,45 +65,71 @@ SceneBaker::~SceneBaker()
 
 }
 
-bool SceneBaker::Light()
+bool SceneBaker::TryAddStaticModelBaker(StaticModelBaker *bakeModel)
 {
-    Vector<SharedPtr<StaticModelBaker>>::Iterator itr = staticModelBakers_.Begin();
+    Image* lightmap = bakeModel->GetLightmap();
 
-    while (itr != staticModelBakers_.End())
+    if (bakeModel->GetLightmapPacked() || !lightmap || !lightmap->GetWidth() || !lightmap->GetHeight())
+        return false;
+
+    // FIXME: configurable
+    int numnodes = LIGHTMAP_WIDTH;
+
+    SharedArrayPtr<unsigned char> nodes(new unsigned char[sizeof(stbrp_node) * numnodes]);
+    SharedArrayPtr<unsigned char> rects(new unsigned char[sizeof(stbrp_rect) * workingSet_.Size() + 1]);
+
+    stbrp_context rectContext;
+
+    stbrp_init_target (&rectContext, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, (stbrp_node *) nodes.Get(), numnodes);
+    stbrp_rect* rect = (stbrp_rect*) rects.Get();
+
+    // add working set, we do this brute force for best results
+    for (unsigned i = 0; i < workingSet_.Size(); i++)
     {
-        StaticModelBaker* baker = *itr;
+        StaticModelBaker* baker = workingSet_[i];
+        Image* lightmap = baker->GetLightmap();
 
-        if (!baker->GetLightmap())
-        {
-            itr++;
-            continue;
-        }
+        rect->id = (int) i;
+        rect->w = lightmap->GetWidth();
+        rect->h = lightmap->GetHeight();
 
-        // baker->TraceAORays(256, 0.5f);
-        baker->TraceSunLight();
-        baker->ProcessLightmap();
-        itr++;
+        rect++;
     }
 
-    // roughing in lightmap packing
+    rect->id = (int) workingSet_.Size();
+    rect->w = lightmap->GetWidth();
+    rect->h = lightmap->GetHeight();
 
-    int width = 4096;
-    int height = 4096;
 
-    stbrp_context context;
+    if (!stbrp_pack_rects (&rectContext, (stbrp_rect *)rects.Get(), workingSet_.Size() + 1))
+    {
+        return false;
+    }
+
+    return true;
+
+}
+
+void SceneBaker::EmitLightmap(int lightMapIndex)
+{
+    // FIXME: configurable
+    int width = LIGHTMAP_WIDTH;
+    int height = LIGHTMAP_HEIGHT;
+
     // see note in stbrp_init_target docs
     int numnodes = width;
 
     SharedArrayPtr<unsigned char> nodes(new unsigned char[sizeof(stbrp_node) * numnodes]);
+    SharedArrayPtr<unsigned char> rects(new unsigned char[sizeof(stbrp_rect) * workingSet_.Size()]);
 
-    SharedArrayPtr<unsigned char> rects(new unsigned char[sizeof(stbrp_rect) * staticModelBakers_.Size()]);
+    stbrp_context rectContext;
 
-    stbrp_init_target (&context, width, height, (stbrp_node *) nodes.Get(), numnodes);
+    stbrp_init_target (&rectContext, width, height, (stbrp_node *) nodes.Get(), numnodes);
     stbrp_rect* rect = (stbrp_rect*) rects.Get();
 
-    for (unsigned i = 0; i < staticModelBakers_.Size(); i++)
+    for (unsigned i = 0; i < workingSet_.Size(); i++)
     {
-        StaticModelBaker* baker =staticModelBakers_[i];
+        StaticModelBaker* baker = workingSet_[i];
         Image* lightmap = baker->GetLightmap();
 
         if (!lightmap)
@@ -114,12 +140,12 @@ bool SceneBaker::Light()
         rect->h = lightmap->GetHeight();
 
         rect++;
-        itr++;
     }
 
-    if (!stbrp_pack_rects (&context, (stbrp_rect *)rects.Get(), staticModelBakers_.Size()))
+    if (!stbrp_pack_rects (&rectContext, (stbrp_rect *)rects.Get(), workingSet_.Size()))
     {
-        ATOMIC_LOGINFO("SceneBaker::Light() - not all rects packed");
+        ATOMIC_LOGERROR("SceneBaker::Light() - not all rects packed");
+        return;
     }
 
     SharedPtr<Image> image(new Image(context_));
@@ -128,14 +154,10 @@ bool SceneBaker::Light()
 
     rect = (stbrp_rect*) rects.Get();
 
-    for (unsigned i = 0; i < staticModelBakers_.Size(); i++)
+    for (unsigned i = 0; i < workingSet_.Size(); i++)
     {
-        StaticModelBaker* baker = staticModelBakers_[i];
+        StaticModelBaker* baker = workingSet_[i];
         Image* lightmap = baker->GetLightmap();
-
-        if (!lightmap)
-            continue;
-
         StaticModel* staticModel = baker->GetStaticModel();
 
         if (!rect->was_packed)
@@ -144,9 +166,12 @@ bool SceneBaker::Light()
             continue;
         }
 
+        baker->SetLightmapPacked(true);
+
         // TODO: apply lightmap scaling from static model setting
         image->SetSubimage(lightmap, IntRect(rect->x, rect->y, rect->x + lightmap->GetWidth(), rect->y + lightmap->GetHeight()));
 
+        staticModel->SetLightmapIndex(lightMapIndex);
         staticModel->SetLightmapTilingOffset(Vector4(float(lightmap->GetWidth())/float(width),
                                                      float(lightmap->GetHeight())/float(height),
                                                      float(rect->x)/float(width),
@@ -155,9 +180,78 @@ bool SceneBaker::Light()
         rect++;
     }
 
-    // next, divide lightmaps into 3 separate, by going out to multiple rects
-    String filename = ToString("/Users/jenge/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Textures/Scene_Lightmap.png");
+    String filename = ToString("/Users/jenge/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Textures/Scene_Lightmap%i.png", lightMapIndex);
     image->SavePNG(filename);
+
+    workingSet_.Clear();
+
+}
+
+bool SceneBaker::Light()
+{
+    StaticModelBaker* bakeModel;
+
+    Vector<SharedPtr<StaticModelBaker>>::Iterator itr = staticModelBakers_.Begin();
+
+    while (itr != staticModelBakers_.End())
+    {
+        bakeModel = *itr;
+
+        if (!bakeModel->GetLightmap())
+        {
+            itr++;
+            continue;
+        }
+
+        //baker->TraceAORays(256, 1.0f);
+        bakeModel->TraceSunLight();
+        bakeModel->ProcessLightmap();
+        itr++;
+    }
+
+    int lightmapIndex = 0;
+
+    for (unsigned i = 0; i < staticModelBakers_.Size(); i++)
+    {
+        bakeModel = staticModelBakers_[i];
+
+        if (!bakeModel->GetLightmap() || bakeModel->GetLightmapPacked())
+            continue;
+
+        Image* lightmap = bakeModel->GetLightmap();
+
+        if (lightmap->GetWidth() >= LIGHTMAP_WIDTH || lightmap->GetHeight() >= LIGHTMAP_HEIGHT)
+        {
+            String filename = ToString("/Users/jenge/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Textures/Scene_Lightmap%i.png", lightmapIndex++);
+            lightmap->SavePNG(filename);
+
+            bakeModel->SetLightmapPacked(true);
+            bakeModel->GetStaticModel()->SetLightmapIndex(lightmapIndex);
+            bakeModel->GetStaticModel()->SetLightmapTilingOffset(Vector4(1.0f, 1.0f, 0.0f, 0.0f));
+
+            continue;
+        }
+
+        workingSet_.Push(bakeModel);
+
+        for (unsigned j = 0; j < staticModelBakers_.Size(); j++)
+        {
+            if (i == j)
+                continue;
+
+            StaticModelBaker* model = staticModelBakers_[j];
+
+            if (TryAddStaticModelBaker(model))
+            {
+                workingSet_.Push(model);
+            }
+
+        }
+
+        EmitLightmap(lightmapIndex++);
+        workingSet_.Clear();
+
+    }
 
     String scenefilename = ToString("/Users/jenge/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Scenes/LitScene.scene");
 
@@ -182,6 +276,18 @@ bool SceneBaker::Preprocess()
 
     return true;
 }
+
+static bool CompareStaticModelBaker(StaticModelBaker* lhs, StaticModelBaker* rhs)
+{
+    int lhsWeight = lhs->GetLightmap() ? lhs->GetLightmap()->GetWidth() : 0;
+    lhsWeight += lhs->GetLightmap() ? lhs->GetLightmap()->GetHeight() : 0;
+
+    int rhsWeight = rhs->GetLightmap() ? rhs->GetLightmap()->GetWidth() : 0;
+    rhsWeight += rhs->GetLightmap() ? rhs->GetLightmap()->GetHeight() : 0;
+
+    return lhsWeight < rhsWeight;
+}
+
 
 bool SceneBaker::LoadScene(const String& filename)
 {
@@ -234,6 +340,9 @@ bool SceneBaker::LoadScene(const String& filename)
         }
 
     }
+
+    // Sort by lightmap size
+    Sort(staticModelBakers_.Begin(), staticModelBakers_.End(), CompareStaticModelBaker);
 
     return true;
 }

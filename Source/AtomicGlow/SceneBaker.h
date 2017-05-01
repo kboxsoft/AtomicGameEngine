@@ -23,7 +23,6 @@
 
 #include <embree2/rtcore.h>
 #include <embree2/rtcore_ray.h>
-
 #include <Atomic/Container/List.h>
 #include <Atomic/Scene/Scene.h>
 
@@ -33,6 +32,10 @@ using namespace Atomic;
 
 namespace AtomicGlow
 {
+
+// fixme: this needs to be configurable
+const int LIGHTMAP_WIDTH = 1024;
+const int LIGHTMAP_HEIGHT = 1024;
 
 class SceneBaker : public Object
 {
@@ -57,13 +60,18 @@ class SceneBaker : public Object
 
 private:
 
+    void EmitLightmap(int lightMapIndex);
+
+    bool TryAddStaticModelBaker(StaticModelBaker *bakeModel);
+
     SharedPtr<Scene> scene_;
 
     Vector<SharedPtr<StaticModelBaker>> staticModelBakers_;
 
+    PODVector<StaticModelBaker*> workingSet_;
+
     RTCDevice rtcDevice_;
     RTCScene rtcScene_;
-
 
 };
 

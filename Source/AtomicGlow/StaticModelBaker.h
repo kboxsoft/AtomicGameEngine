@@ -54,6 +54,9 @@ class StaticModelBaker : public Object
 
     Image* GetLightmap() const { return lightmap_; }
 
+    bool GetLightmapPacked() const { return lightmapPacked_; }
+    void SetLightmapPacked(bool value) { lightmapPacked_ = value; }
+
     StaticModel* GetStaticModel() const { return staticModel_; }
 
     void ProcessLightmap();
@@ -84,6 +87,7 @@ private:
     };
 
     SharedPtr<Image> lightmap_;
+    bool lightmapPacked_;
 
     SharedArrayPtr<unsigned> indices_;    
     unsigned numIndices_;
@@ -103,7 +107,6 @@ private:
 
     // geometry bake materials
     PODVector<BakeMaterial*> bakeMaterials_;
-
 
 };
 
