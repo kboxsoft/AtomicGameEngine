@@ -54,6 +54,8 @@ class StaticModelBaker : public Object
 
     Image* GetLightmap() const { return lightmap_; }
 
+    StaticModel* GetStaticModel() const { return staticModel_; }
+
     void ProcessLightmap();
 
 private:

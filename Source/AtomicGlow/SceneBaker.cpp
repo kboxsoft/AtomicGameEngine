@@ -123,16 +123,19 @@ bool SceneBaker::Light()
 
     SharedPtr<Image> image(new Image(context_));
     image->SetSize(width, height, 3);
+    image->Clear(Color::BLACK);
 
     rect = (stbrp_rect*) rects.Get();
 
     for (unsigned i = 0; i < staticModelBakers_.Size(); i++)
     {
-        StaticModelBaker* baker =staticModelBakers_[i];
+        StaticModelBaker* baker = staticModelBakers_[i];
         Image* lightmap = baker->GetLightmap();
 
         if (!lightmap)
             continue;
+
+        StaticModel* staticModel = baker->GetStaticModel();
 
         if (!rect->was_packed)
         {
@@ -143,12 +146,22 @@ bool SceneBaker::Light()
         // TODO: apply lightmap scaling from static model setting
         image->SetSubimage(lightmap, IntRect(rect->x, rect->y, rect->x + lightmap->GetWidth(), rect->y + lightmap->GetHeight()));
 
+        staticModel->SetLightmapTilingOffset(Vector4(float(lightmap->GetWidth())/float(width),
+                                                     float(lightmap->GetHeight())/float(height),
+                                                     float(rect->x)/float(width),
+                                                     float(rect->y)/float(height)));
+
         rect++;
     }
 
     // next, divide lightmaps into 3 separate, by going out to multiple rects
     String filename = ToString("/Users/jenge/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Textures/Scene_Lightmap.png");
     image->SavePNG(filename);
+
+    String scenefilename = ToString("/Users/jenge/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Scenes/LitScene.scene");
+
+    File saveFile(context_, scenefilename, FILE_WRITE);
+    scene_->SaveXML(saveFile);
 
     return true;
 

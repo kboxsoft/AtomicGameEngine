@@ -86,7 +86,10 @@ void VS()
             // If using lightmap, disregard zone ambient light
             // If using AO, calculate ambient in the PS
             vVertexLight = vec3(0.0, 0.0, 0.0);
-            vTexCoord2 = iTexCoord1;
+            // ATOMIC BEGIN
+            // vTexCoord2 = iTexCoord1;
+            vTexCoord2 = GetLightMapTexCoord(iTexCoord1);
+            // ATOMIC END
         #else
             vVertexLight = GetAmbient(GetZonePos(worldPos));
         #endif

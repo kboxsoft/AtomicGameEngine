@@ -135,7 +135,7 @@ public:
     void SetLightmapIndex(unsigned idx) { lightmapIndex_ = idx; }
 
     const Vector4& GetLightmapTilingOffset() const { return lightmapTilingOffset_; }
-    void SetLightmapTilingOffset(Vector4& tilingOffset) { lightmapTilingOffset_ = tilingOffset; }
+    void SetLightmapTilingOffset(Vector4 tilingOffset) { lightmapTilingOffset_ = tilingOffset; }
 
     // ATOMIC END
 

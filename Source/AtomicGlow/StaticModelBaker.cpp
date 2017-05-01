@@ -198,8 +198,10 @@ void StaticModelBaker::ProcessLightmap()
         lightmap_->SetPixelInt(lexel.pixelCoord_.x_, lexel.pixelCoord_.y_, 0, lexel.color_.ToUInt());
     }
 
+    /*
     String filename = ToString("/Users/jenge/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Textures/%s_AOBake.png", node_->GetName().CString());
     lightmap_->SavePNG(filename);
+    */
 }
 
 void StaticModelBaker::TraceSunLight()

@@ -52,7 +52,8 @@ StaticModel::StaticModel(Context* context) :
     lightmap_(false),
     lightmapScale_(1.0f),
     lightmapSize_(0),
-    lightmapIndex_(0)
+    lightmapIndex_(0),
+    lightmapTilingOffset_(1.0f, 1.0f, 0.0f, 0.0f)
     // ATOMIC END
 {
 }
@@ -177,7 +178,18 @@ void StaticModel::UpdateBatches(const FrameInfo& frame)
 
     // ATOMIC BEGIN
     if (geometryDisabled_)
+    {
         UpdateBatchesHideGeometry();
+    }
+
+    if (lightmap_)
+    {
+        for (unsigned i = 0; i < batches_.Size(); ++i)
+        {
+            batches_[i].geometryType_ = GEOM_STATIC_NOINSTANCING;
+            batches_[i].lightmapTilingOffset_ = &lightmapTilingOffset_;
+        }
+    }
     // ATOMIC END
 
 }
