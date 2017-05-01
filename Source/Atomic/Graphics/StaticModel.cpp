@@ -186,6 +186,7 @@ void StaticModel::UpdateBatches(const FrameInfo& frame)
     {
         for (unsigned i = 0; i < batches_.Size(); ++i)
         {
+            batches_[i].lightmapTextureID_ = lightmapIndex_;
             batches_[i].geometryType_ = GEOM_STATIC_NOINSTANCING;
             batches_[i].lightmapTilingOffset_ = &lightmapTilingOffset_;
         }

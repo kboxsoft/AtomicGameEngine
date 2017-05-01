@@ -610,12 +610,27 @@ void Batch::Prepare(View* view, Camera* camera, bool setModelTransform, bool all
                 graphics->SetShaderParameter(i->first_, i->second_.value_);
         }
 
+        // ATOMIC BEGIN
+
         const HashMap<TextureUnit, SharedPtr<Texture> >& textures = material_->GetTextures();
         for (HashMap<TextureUnit, SharedPtr<Texture> >::ConstIterator i = textures.Begin(); i != textures.End(); ++i)
         {
             if (graphics->HasTextureUnit(i->first_))
+            {
+                if (i->first_ == TU_EMISSIVE && lightmapTilingOffset_)
+                    continue;
+
                 graphics->SetTexture(i->first_, i->second_.Get());
+            }
         }
+
+        if (lightmapTilingOffset_)
+        {
+            graphics->SetLightmapTexture(lightmapTextureID_);
+        }
+
+        // ATOMIC END
+
     }
 
     // Set light-related textures

@@ -222,13 +222,14 @@ bool SceneBaker::Light()
 
         if (lightmap->GetWidth() >= LIGHTMAP_WIDTH || lightmap->GetHeight() >= LIGHTMAP_HEIGHT)
         {
-            String filename = ToString("/Users/jenge/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Textures/Scene_Lightmap%i.png", lightmapIndex++);
+            String filename = ToString("/Users/jenge/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Textures/Scene_Lightmap%i.png", lightmapIndex);
             lightmap->SavePNG(filename);
 
             bakeModel->SetLightmapPacked(true);
             bakeModel->GetStaticModel()->SetLightmapIndex(lightmapIndex);
             bakeModel->GetStaticModel()->SetLightmapTilingOffset(Vector4(1.0f, 1.0f, 0.0f, 0.0f));
 
+            lightmapIndex++;
             continue;
         }
 

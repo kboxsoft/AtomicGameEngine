@@ -52,6 +52,9 @@
 #include "../IO/FileSystem.h"
 #include "../IO/Log.h"
 
+// FIXME: Hack
+#include "../Resource/ResourceCache.h"
+
 // ATOMIC BEGIN
 #include <SDL/include/SDL.h>
 #include <SDL/include/SDL_syswm.h>
@@ -436,6 +439,32 @@ void Graphics::RaiseWindow()
         SDL_RaiseWindow(window_);
 }
 
+// FIXME: Hack
+#include "./Resource/ResourceCache.h"
+static PODVector<Texture2D*> lightmapTextures;
+
+void Graphics::SetLightmapTexture(unsigned id)
+{
+    const unsigned numLightmaps = 16;
+    if (!lightmapTextures.Size())
+    {
+        lightmapTextures.Resize(numLightmaps);
+
+        ResourceCache* cache = GetSubsystem<ResourceCache>();
+
+        for (unsigned i = 0; i < numLightmaps; i++)
+        {
+            lightmapTextures[i] = cache->GetResource<Texture2D>(ToString("Textures/Scene_Lightmap%u.png", i));
+        }
+
+    }
+
+    if (id > lightmapTextures.Size())
+        return;
+
+    SetTexture(TU_EMISSIVE, lightmapTextures[id]);
+
+}
 
 // ATOMIC END
 

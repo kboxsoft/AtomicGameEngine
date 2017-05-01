@@ -54,7 +54,8 @@ struct Batch
         isBase_(false),
         lightQueue_(0),
         // ATOMIC BEGIN
-        lightmapTilingOffset_(0)
+        lightmapTilingOffset_(0),
+        lightmapTextureID_(0)
         // ATOMIC END
     {
     }
@@ -71,8 +72,9 @@ struct Batch
         instancingData_(rhs.instancingData_),
         lightQueue_(0),
         geometryType_(rhs.geometryType_),
-        // ATOMIC BEGIN
-        lightmapTilingOffset_(rhs.lightmapTilingOffset_)
+        // ATOMIC BEGIN        
+        lightmapTilingOffset_(rhs.lightmapTilingOffset_),
+        lightmapTextureID_(rhs.lightmapTextureID_)
         // ATOMIC END
     {
     }
@@ -119,6 +121,7 @@ struct Batch
 
     // ATOMIC BEGIN
      Vector4* lightmapTilingOffset_;
+     unsigned lightmapTextureID_;
     // ATOMIC END
 };
 

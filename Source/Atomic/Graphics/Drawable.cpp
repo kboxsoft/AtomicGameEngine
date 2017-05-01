@@ -59,7 +59,8 @@ SourceBatch::SourceBatch() :
     instancingData_((void*)0),
     geometryType_(GEOM_STATIC),
     // ATOMIC BEGIN
-    lightmapTilingOffset_(0)
+    lightmapTilingOffset_(0),
+    lightmapTextureID_(0)
     // ATOMIC END
 {
 }

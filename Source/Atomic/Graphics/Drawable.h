@@ -108,6 +108,7 @@ struct ATOMIC_API SourceBatch
     // ATOMIC BEGIN
     /// Lightmap Tiling Offset
     Vector4* lightmapTilingOffset_;
+    unsigned lightmapTextureID_;
     // ATOMIC END
 };
 
