@@ -362,6 +362,7 @@ bool StaticModelBaker::FillLexelsCallback(void* param, int x, int y, const Vecto
     // TODO: ambient
     lexel.color_ = Color(.6f, .6f, .6f);
 
+    /*
     Image* diffuse = shaderData->bakeMaterial_->GetDiffuseTexture();
 
     if (diffuse)
@@ -413,8 +414,96 @@ bool StaticModelBaker::FillLexelsCallback(void* param, int x, int y, const Vecto
         lexel.diffuseColor_ = diffuse->GetPixel(px, py);
 
     }
+    */
 
     return true;
+}
+
+void StaticModelBaker::SetupLightmap()
+{
+    lightmap_ = new Image(context_);
+
+    unsigned lmSize = staticModel_->GetLightmapSize() ? staticModel_->GetLightmapSize() : 256;
+
+    if (lmSize > 4096)
+        lmSize = 4096;
+
+    unsigned w, h;
+    w = h = lmSize;
+
+    lightmap_->SetSize(w, h, 3);
+
+    lmLexels_.Resize(w * h);
+
+    for (unsigned y = 0; y < h; y++)
+    {
+        for (unsigned x = 0; x < w ; x++)
+        {
+            LMLexel& lexel = lmLexels_[y * w + x];
+            lexel.color_ = Color::BLACK;
+            lexel.diffuseColor_ = Color::BLACK;
+            lexel.pixelCoord_.x_ = x;
+            lexel.pixelCoord_.y_ = y;
+            lexel.normal_ = Vector3::ZERO;
+            lexel.position_ = Vector3::ZERO;
+        }
+    }
+
+    // for all triangles
+
+    Vector2 extents(lightmap_->GetWidth(), lightmap_->GetHeight());
+    Vector2 triUV[3];
+
+    ShaderData shaderData;
+
+    shaderData.baker_ = this;
+
+    for (unsigned i = 0; i < numIndices_; i += 3)
+    {
+        // Setup triangle
+        Triangle* tri = &triangles_[i/3];
+
+        shaderData.triangle_ = tri;
+
+        shaderData.bakeMaterial_ = bakeMaterials_[tri->materialIndex_];
+
+        shaderData.triPositions_[0] = lmVertices_[indices_[i]].position_;
+        shaderData.triPositions_[1] = lmVertices_[indices_[i + 1]].position_;
+        shaderData.triPositions_[2] = lmVertices_[indices_[i + 2]].position_;
+
+        shaderData.triNormals_[0] = lmVertices_[indices_[i]].normal_;
+        shaderData.triNormals_[1] = lmVertices_[indices_[i + 1]].normal_;
+        shaderData.triNormals_[2] = lmVertices_[indices_[i + 2]].normal_;
+
+        triUV[0] = lmVertices_[indices_[i]].uv1_;
+        triUV[1] = lmVertices_[indices_[i + 1]].uv1_;
+        triUV[2] = lmVertices_[indices_[i + 2]].uv1_;
+
+        triUV[0].x_ *= w;
+        triUV[1].x_ *= w;
+        triUV[2].x_ *= w;
+
+        triUV[0].y_ *= h;
+        triUV[1].y_ *= h;
+        triUV[2].y_ *= h;
+
+        /*
+        Vector3 A = shaderData.triPositions_[1] - shaderData.triPositions_[0];
+        Vector3 B = shaderData.triPositions_[2] - shaderData.triPositions_[0];
+        shaderData.faceNormal_ = A.CrossProduct(B);
+        shaderData.faceNormal_.Normalize();
+        */
+
+        shaderData.faceNormal_ = shaderData.triNormals_[0];
+        shaderData.faceNormal_ += shaderData.triNormals_[1];
+        shaderData.faceNormal_ += shaderData.triNormals_[2];
+
+        shaderData.faceNormal_ /= 3.0f;
+
+        Raster::DrawTriangle(true, extents, true, triUV, FillLexelsCallback, &shaderData );
+
+    }
+
 }
 
 bool StaticModelBaker::Preprocess()
@@ -514,42 +603,7 @@ bool StaticModelBaker::Preprocess()
         vertexStart += mpGeo->vertices_.Size();
     }
 
-    lightmap_ = new Image(context_);
-
-    unsigned lmSize = staticModel_->GetLightmapSize() ? staticModel_->GetLightmapSize() : 256;
-
-    if (lmSize > 4096)
-        lmSize = 4096;
-
-    unsigned w, h;
-    w = h = lmSize;
-
-    lightmap_->SetSize(w, h, 2, 3);
-
-    lmLexels_.Resize(w * h);
-
-    for (unsigned y = 0; y < h; y++)
-    {
-        for (unsigned x = 0; x < w ; x++)
-        {
-            LMLexel& lexel = lmLexels_[y * w + x];
-            lexel.color_ = Color::BLACK;
-            lexel.diffuseColor_ = Color::BLACK;
-            lexel.pixelCoord_.x_ = x;
-            lexel.pixelCoord_.y_ = y;
-            lexel.normal_ = Vector3::ZERO;
-            lexel.position_ = Vector3::ZERO;
-        }
-    }
-
-    // for all triangles
-
-    Vector2 extents(lightmap_->GetWidth(), lightmap_->GetHeight());
-    Vector2 triUV[3];
-
-    ShaderData shaderData;
-
-    shaderData.baker_ = this;
+    // Setup triangles
 
     for (unsigned i = 0; i < numIndices_; i += 3)
     {
@@ -560,45 +614,11 @@ bool StaticModelBaker::Preprocess()
         tri->uv0_[1] = lmVertices_[indices_[i + 1]].uv0_;
         tri->uv0_[2] = lmVertices_[indices_[i + 2]].uv0_;
 
-        shaderData.triangle_ = tri;
+    }
 
-        shaderData.bakeMaterial_ = bakeMaterials_[tri->materialIndex_];
-
-        shaderData.triPositions_[0] = lmVertices_[indices_[i]].position_;
-        shaderData.triPositions_[1] = lmVertices_[indices_[i + 1]].position_;
-        shaderData.triPositions_[2] = lmVertices_[indices_[i + 2]].position_;
-
-        shaderData.triNormals_[0] = lmVertices_[indices_[i]].normal_;
-        shaderData.triNormals_[1] = lmVertices_[indices_[i + 1]].normal_;
-        shaderData.triNormals_[2] = lmVertices_[indices_[i + 2]].normal_;
-
-        triUV[0] = lmVertices_[indices_[i]].uv1_;
-        triUV[1] = lmVertices_[indices_[i + 1]].uv1_;
-        triUV[2] = lmVertices_[indices_[i + 2]].uv1_;
-
-        triUV[0].x_ *= w;
-        triUV[1].x_ *= w;
-        triUV[2].x_ *= w;
-
-        triUV[0].y_ *= h;
-        triUV[1].y_ *= h;
-        triUV[2].y_ *= h;
-
-        /*
-        Vector3 A = shaderData.triPositions_[1] - shaderData.triPositions_[0];
-        Vector3 B = shaderData.triPositions_[2] - shaderData.triPositions_[0];
-        shaderData.faceNormal_ = A.CrossProduct(B);
-        shaderData.faceNormal_.Normalize();
-        */
-
-        shaderData.faceNormal_ = shaderData.triNormals_[0];
-        shaderData.faceNormal_ += shaderData.triNormals_[1];
-        shaderData.faceNormal_ += shaderData.triNormals_[2];
-
-        shaderData.faceNormal_ /= 3.0f;
-
-        Raster::DrawTriangle(true, extents, true, triUV, FillLexelsCallback, &shaderData );
-
+    if (staticModel_->GetLightmap())
+    {
+        SetupLightmap();
     }
 
     AddToEmbreeScene();

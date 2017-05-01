@@ -52,10 +52,13 @@ class StaticModelBaker : public Object
     void TraceAORays(unsigned nsamples, float aoDepth, float multiply = 1.0f);
     void TraceSunLight();    
 
+    Image* GetLightmap() const { return lightmap_; }
+
     void ProcessLightmap();
 
 private:
 
+    void SetupLightmap();
     bool AddToEmbreeScene();
 
     static bool FillLexelsCallback(void* param, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage);    

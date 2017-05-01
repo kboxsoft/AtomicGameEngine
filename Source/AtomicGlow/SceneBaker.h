@@ -56,7 +56,7 @@ private:
 
     SharedPtr<Scene> scene_;
 
-    List<SharedPtr<StaticModelBaker>> staticModelBakers_;
+    Vector<SharedPtr<StaticModelBaker>> staticModelBakers_;
 
     RTCDevice rtcDevice_;
     RTCScene rtcScene_;
