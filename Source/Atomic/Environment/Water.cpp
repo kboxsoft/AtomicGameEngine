@@ -208,7 +208,7 @@ void Water::Initialize()
 	RenderSurface* surface = renderTexture->GetRenderSurface();
 	SharedPtr<Viewport> rttViewport(new Viewport(context_, scene_, reflectionCamera));
 	surface->SetViewport(0, rttViewport);
-	Material* waterMat = cache->GetResource<Material>("Materials/Water.xml");
+	Material* waterMat = cache->GetResource<Material>("Materials/DeepWater.xml");
 	waterMat->SetTexture(TU_DIFFUSE, renderTexture);
 	water->SetMaterial(waterMat);
     initialized_ = true;
