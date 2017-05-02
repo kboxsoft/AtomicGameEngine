@@ -52,8 +52,10 @@ void MeshLightmapUVGen::WriteLightmapUVCoords()
     if (!modelName.Length())
         modelName = "AnonymousModel";
 
-    Thekla::atlas_write_debug_textures(tOutputMesh_, tInputMesh_, ToString("/Users/jenge/Desktop/%s_lmWorldSpaceTexture.png", modelName.CString()).CString() ,
-                                                                  ToString("/Users/jenge/Desktop/%s_lmNormalTexture.png", modelName.CString()).CString() );
+    
+    //Thekla::atlas_write_debug_textures(tOutputMesh_, tInputMesh_, ToString("/Users/jenge/Desktop/%s_lmWorldSpaceTexture.png", modelName.CString()).CString() ,
+    //                                                              ToString("/Users/jenge/Desktop/%s_lmNormalTexture.png", modelName.CString()).CString() );
+
     Vector<PODVector<MPVertex>> geoVerts;
     Vector<PODVector<unsigned>> geoIndices;
 

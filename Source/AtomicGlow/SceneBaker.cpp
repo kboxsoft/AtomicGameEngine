@@ -76,7 +76,7 @@ bool SceneBaker::TryAddStaticModelBaker(StaticModelBaker *bakeModel)
     int numnodes = LIGHTMAP_WIDTH;
 
     SharedArrayPtr<unsigned char> nodes(new unsigned char[sizeof(stbrp_node) * numnodes]);
-    SharedArrayPtr<unsigned char> rects(new unsigned char[sizeof(stbrp_rect) * workingSet_.Size() + 1]);
+    SharedArrayPtr<unsigned char> rects(new unsigned char[sizeof(stbrp_rect) * (workingSet_.Size() + 1)]);
 
     stbrp_context rectContext;
 
@@ -181,7 +181,11 @@ void SceneBaker::EmitLightmap(int lightMapIndex)
     }
 
     FilterLightmap(image);
+#ifdef ATOMIC_PLATFORM_WINDOWS
+    String filename = ToString("C:/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Textures/Scene_Lightmap%i.png", lightMapIndex);
+#else
     String filename = ToString("/Users/jenge/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Textures/Scene_Lightmap%i.png", lightMapIndex);
+#endif
     image->SavePNG(filename);
 
     workingSet_.Clear();
@@ -267,7 +271,12 @@ bool SceneBaker::Light()
 
         if (lightmap->GetWidth() >= LIGHTMAP_WIDTH || lightmap->GetHeight() >= LIGHTMAP_HEIGHT)
         {
+#ifdef ATOMIC_PLATFORM_WINDOWS
+            String filename = ToString("C:/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Textures/Scene_Lightmap%i.png", lightmapIndex);
+#else
             String filename = ToString("/Users/jenge/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Textures/Scene_Lightmap%i.png", lightmapIndex);
+#endif            
+
             FilterLightmap(lightmap);
             lightmap->SavePNG(filename);
 
@@ -300,7 +309,11 @@ bool SceneBaker::Light()
 
     }
 
+#ifdef ATOMIC_PLATFORM_WINDOWS
+    String scenefilename = ToString("C:/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Scenes/LitScene.scene");
+#else
     String scenefilename = ToString("/Users/jenge/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Scenes/LitScene.scene");
+#endif            
 
     File saveFile(context_, scenefilename, FILE_WRITE);
     scene_->SaveXML(saveFile);
