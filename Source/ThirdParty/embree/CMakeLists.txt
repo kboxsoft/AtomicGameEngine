@@ -196,7 +196,11 @@ ENDIF (WIN32)
 # ISA configuration
 ##############################################################
 
-SET(EMBREE_MAX_ISA "AVX2" CACHE STRING "Selects highest ISA to support.")
+# ATOMIC BEGIN
+# Setting to NONE as don't support ISPC
+# macOS is selecting SSE2, look into this on Windows
+SET(EMBREE_MAX_ISA "NONE" CACHE STRING "Selects highest ISA to support.")
+# ATOMIC END
 SET_PROPERTY(CACHE EMBREE_MAX_ISA PROPERTY STRINGS NONE SSE2 SSE4.2 AVX AVX2 AVX512KNL AVX512SKX)
 
 IF (EMBREE_MAX_ISA STREQUAL "NONE")
