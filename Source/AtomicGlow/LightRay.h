@@ -72,7 +72,7 @@ public:
         Vector2 uv1;
     };
 
-    void SetupRay(const Vector3& origin, const Vector3& dir, float tNear = 0.001f, float tFar = 999999.0f);
+    void SetupRay(const Vector3& origin, const Vector3& dir, float tNear = 0.001f, float tFar = 99999.0f);
 
     void ClearHit();
 

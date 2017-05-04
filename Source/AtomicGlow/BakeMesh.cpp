@@ -157,6 +157,7 @@ void BakeMesh::GenerateRadianceMap()
     radianceMap_->image_ = image;
 
     image->SetSize(radianceWidth_, radianceHeight_, 3);
+    image->Clear(Color::BLACK);
 
     Color ambient = Color::BLACK;
 
@@ -164,8 +165,6 @@ void BakeMesh::GenerateRadianceMap()
     {
         ambient = staticModel_->GetZone()->GetAmbientColor();
     }
-
-    image->Clear(ambient);
 
     Color c;
     for (unsigned y = 0; y < radianceHeight_; y++)
@@ -180,6 +179,67 @@ void BakeMesh::GenerateRadianceMap()
                 c.g_ = Min<float>(rad.y_, 1.0f);
                 c.b_ = Min<float>(rad.z_, 1.0f);
                 image->SetPixel(x, y, c);
+            }
+        }
+    }
+
+    // Dilate the image by 2 pixels to allow bilinear texturing near seams.
+    // Note that this still allows seams when mipmapping, unless mipmap levels
+    // are generated very carefully.
+
+    SharedArrayPtr<Color> tmp(new Color[radianceWidth_ * radianceHeight_]);
+
+    for (int step = 0; step < 2; step++)
+    {
+        memset (&tmp[0], 0, radianceWidth_ * radianceHeight_ * sizeof(Color));
+
+        for (int y = 0; y < radianceHeight_ ; y++)
+        {
+            for (int x = 0; x < radianceWidth_; x++)
+            {
+                int center = x + y * radianceWidth_;
+
+                Color color = image->GetPixel(x, y);
+                Vector3& rad = radiance_[center];
+
+                tmp[center] = color;
+
+                if (rad.x_ < 0.0f)
+                {
+                    for (int k = 0; k < 9; k++)
+                    {
+                        int i = (k / 3) - 1, j = (k % 3) - 1;
+
+                        if (i == 0 && j == 0)
+                        {
+                            continue;
+                        }
+
+                        i += x;
+                        j += y;
+
+                        if (i < 0 || j < 0 || i >= radianceWidth_ || j >=  radianceHeight_ )
+                        {
+                            continue;
+                        }
+
+                        Color color2 = image->GetPixel(i, j);
+
+                        if (color2 != Color::BLACK)
+                        {
+                            tmp[center] = color2;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        for (int y = 0; y < radianceHeight_ ; y++)
+        {
+            for (int x = 0; x < radianceWidth_; x++)
+            {
+                image->SetPixel(x, y, tmp[y * radianceWidth_ + x]);
             }
         }
     }
