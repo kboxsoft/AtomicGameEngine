@@ -27,6 +27,7 @@
 namespace Atomic
 {
     class Light;
+    class Zone;
 }
 
 using namespace Atomic;
@@ -52,49 +53,42 @@ class BakeLight : public BakeNode
 
 protected:
 
-    /*
-
-    struct SampleResult
-    {
-      // radiance that arrives at the given point divided by pdf
-      embree::Vec3fa weight;
-      // largest valid t_far value for a shadow ray
-      embree::Vec3fa dir;
-      // largest valid t_far value for a shadow ray
-      float dist;
-      // probability density that this sample was taken
-      float pdf;
-    };
-
-    struct EvalResult
-    {
-      // radiance that arrives at the given point (not weighted by pdf)
-      embree::Vec3fa value;
-      float dist;
-      // probability density that the direction would have been sampled
-      float pdf;
-    };
-
-    /// Compute the weighted radiance at a point caused by a sample on the light source
-    /// by convention, giving (0, 0) as "random" numbers should sample the "center" of the light source
-    virtual void Sample(SampleResult& result, const embree::DifferentialGeometry& dg, const embree::Vec2f& s) = 0;
-
-    /// Compute the radiance, distance and pdf caused by the light source (pointed to by the given direction)
-    virtual void Eval(EvalResult& result, const embree::DifferentialGeometry& dg, const embree::Vec3fa& dir) = 0;
-    */
-
 private:
 
 };
 
-class BakeLightDirectional : public BakeLight
+// Zone ambient, etc
+class ZoneBakeLight : public BakeLight
 {
-    ATOMIC_OBJECT(BakeLightDirectional, BakeLight)
+    ATOMIC_OBJECT(ZoneBakeLight, BakeLight)
 
     public:
 
-    BakeLightDirectional(Context* context, SceneBaker* sceneBaker);
-    virtual ~BakeLightDirectional();
+    ZoneBakeLight(Context* context, SceneBaker* sceneBaker);
+    virtual ~ZoneBakeLight();
+
+    void Light(LightRay* lightRay);
+    void SetLight(Atomic::Light* light) {}
+
+    void SetZone(Zone* zone);
+
+protected:
+
+private:
+
+    Zone* zone_;
+
+};
+
+
+class DirectionalBakeLight : public BakeLight
+{
+    ATOMIC_OBJECT(DirectionalBakeLight, BakeLight)
+
+    public:
+
+    DirectionalBakeLight(Context* context, SceneBaker* sceneBaker);
+    virtual ~DirectionalBakeLight();
 
     void Set(const Vector3& direction, const Vector3& radiance, float cosAngle);
 
@@ -107,24 +101,8 @@ protected:
 
     Vector3 direction_;
 
-    /*
-    void Sample(SampleResult& result, const embree::DifferentialGeometry& dg, const embree::Vec2f &s);
-
-    void Eval(EvalResult& result, const embree::DifferentialGeometry& dg, const embree::Vec3fa& dir);
-    */
 
 private:
-
-    /*
-    // Coordinate frame, with vz == direction *towards* the light source
-    embree::LinearSpace3fa frame_;
-    // RGB color and intensity of light
-    embree::Vec3fa radiance_;
-    // Angular limit of the cone light in an easier to use form: cosine of the half angle in radians
-    float cosAngle_;
-    // Probability to sample a direction to the light
-    float pdf_;
-    */
 
 };
 

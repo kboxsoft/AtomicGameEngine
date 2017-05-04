@@ -114,10 +114,6 @@ bool BakeMesh::LightPixel(BakeMesh::ShaderData* shaderData, int x, int y, const 
                   verts[1]->uv1_ * barycentric.y_ +
                   verts[2]->uv1_ * barycentric.z_;
 
-    // hack ambient
-    const Vector3 ambient(.6f, .6f, .6f);
-    SetRadiance(x, y, ambient);
-
     sceneBaker_->TraceRay(&ray, bakeLights_);
 
     return true;

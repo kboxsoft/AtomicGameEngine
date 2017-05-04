@@ -20,6 +20,8 @@
 // THE SOFTWARE.
 //
 
+#include <Atomic/Graphics/Zone.h>
+
 #include "EmbreeScene.h"
 
 #include "LightRay.h"
@@ -40,18 +42,45 @@ BakeLight::~BakeLight()
 
 }
 
+// Zone Lights
+
+ZoneBakeLight::ZoneBakeLight(Context* context, SceneBaker* sceneBaker) : BakeLight(context, sceneBaker)
+{
+}
+
+ZoneBakeLight::~ZoneBakeLight()
+{
+
+}
+
+void ZoneBakeLight::Light(LightRay* lightRay)
+{
+    LightRay::SamplePoint& source = lightRay->samplePoint_;
+
+    const Color& color = zone_->GetAmbientColor();
+
+    source.bakeMesh->SetRadiance(source.radianceX, source.radianceY, Vector3(color.r_, color.g_, color.b_));
+}
+
+void ZoneBakeLight::SetZone(Zone* zone)
+{
+    node_ = zone->GetNode();
+    zone_ = zone;
+}
+
+
 // Directional Lights
 
-BakeLightDirectional::BakeLightDirectional(Context* context, SceneBaker* sceneBaker) : BakeLight(context, sceneBaker)
+DirectionalBakeLight::DirectionalBakeLight(Context* context, SceneBaker* sceneBaker) : BakeLight(context, sceneBaker)
 {
 }
 
-BakeLightDirectional::~BakeLightDirectional()
+DirectionalBakeLight::~DirectionalBakeLight()
 {
 
 }
 
-void BakeLightDirectional::Light(LightRay* lightRay)
+void DirectionalBakeLight::Light(LightRay* lightRay)
 {
     RTCScene scene = sceneBaker_->GetEmbreeScene()->GetRTCScene();
 
@@ -71,7 +100,7 @@ void BakeLightDirectional::Light(LightRay* lightRay)
 
 }
 
-void BakeLightDirectional::SetLight(Atomic::Light* light)
+void DirectionalBakeLight::SetLight(Atomic::Light* light)
 {
     node_ = light->GetNode();
 

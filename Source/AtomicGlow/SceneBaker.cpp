@@ -28,6 +28,7 @@
 
 #include <Atomic/IO/Log.h>
 #include <Atomic/Resource/ResourceCache.h>
+#include <Atomic/Graphics/Zone.h>
 #include <Atomic/Graphics/Light.h>
 #include <Atomic/Graphics/StaticModel.h>
 
@@ -109,7 +110,7 @@ void SceneBaker::QueryLights(const BoundingBox& bbox, PODVector<BakeLight*>& lig
     for (unsigned i = 0; i < bakeLights_.Size(); i++)
     {
 
-        // TODO: filter on range, groups, etc
+        // TODO: filter on zone, range, groups
         lights.Push(bakeLights_[i]);
 
     }
@@ -149,6 +150,19 @@ bool SceneBaker::LoadScene(const String& filename)
         return false;
     }
 
+    // Zones
+    PODVector<Node*> zoneNodes;
+    scene_->GetChildrenWithComponent<Zone>(zoneNodes, true);
+
+    for (unsigned i = 0; i < zoneNodes.Size(); i++)
+    {
+        Zone* zone = zoneNodes[i]->GetComponent<Zone>();
+        SharedPtr<ZoneBakeLight> zlight(new ZoneBakeLight(context_, this));
+        zlight->SetZone(zone);
+        bakeLights_.Push(zlight);
+    }
+
+    // Lights
     PODVector<Node*> lightNodes;
     scene_->GetChildrenWithComponent<Atomic::Light>(lightNodes, true);
 
@@ -158,12 +172,13 @@ bool SceneBaker::LoadScene(const String& filename)
 
         if (light->GetLightType() == LIGHT_DIRECTIONAL)
         {
-            SharedPtr<BakeLightDirectional> dlight(new BakeLightDirectional(context_, this));
+            SharedPtr<DirectionalBakeLight> dlight(new DirectionalBakeLight(context_, this));
             dlight->SetLight(light);
             bakeLights_.Push(dlight);
         }
     }
 
+    // Static Models
     PODVector<StaticModel*> staticModels;
     scene_->GetComponents<StaticModel>(staticModels, true);
 
