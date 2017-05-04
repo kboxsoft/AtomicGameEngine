@@ -21,51 +21,32 @@
 
 #pragma once
 
-#include <Atomic/Scene/Scene.h>
+#include <Atomic/Scene/Node.h>
 
 using namespace Atomic;
 
 namespace AtomicGlow
 {
 
-class LightRay;
-class BakeMesh;
-class BakeLight;
-class EmbreeScene;
+class SceneBaker;
 
-class SceneBaker : public Object
+class BakeNode : public Object
 {
-    ATOMIC_OBJECT(SceneBaker, Object)
+    ATOMIC_OBJECT(BakeNode, Object)
 
     public:
 
-    SceneBaker(Context* context);
-    virtual ~SceneBaker();
+    BakeNode(Context* context, SceneBaker* sceneBaker);
+    virtual ~BakeNode();
 
-    bool Preprocess();
+protected:
 
-    bool Light();
+    // scene graph
+    SharedPtr<Node> node_;
 
-    bool LoadScene(const String& filename);
-
-    void QueryLights(const BoundingBox& bbox, PODVector<BakeLight*>& lights);
-
-    void TraceRay(LightRay* lightRay, const PODVector<AtomicGlow::BakeLight *>& bakeLights_);
-
-    EmbreeScene* GetEmbreeScene() const { return embreeScene_; }
+    WeakPtr<SceneBaker> sceneBaker_;
 
 private:
-
-    //void FilterLightmap(Image* lightmap);
-    //void EmitLightmap(int lightMapIndex);
-    //bool TryAddStaticModelBaker(StaticModelBaker *bakeModel);
-
-    SharedPtr<Scene> scene_;
-    SharedPtr<EmbreeScene> embreeScene_;
-
-    Vector<SharedPtr<BakeMesh>> bakeMeshes_;
-
-    Vector<SharedPtr<BakeLight>> bakeLights_;
 
 };
 

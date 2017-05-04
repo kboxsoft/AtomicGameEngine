@@ -32,32 +32,17 @@
 #include <Atomic/Graphics/StaticModel.h>
 
 #include "BakeModel.h"
+#include "BakeMesh.h"
+#include "BakeLight.h"
+#include "EmbreeScene.h"
 #include "SceneBaker.h"
 
 namespace AtomicGlow
 {
 
-
-static void RTCErrorCallback(const RTCError code, const char* str)
+SceneBaker::SceneBaker(Context* context) : Object(context)
 {
-    ATOMIC_LOGERRORF("RTC Error %d: %s", code, str);
-}
-
-
-SceneBaker::SceneBaker(Context* context) : Object(context),
-    rtcDevice_(0),
-    rtcScene_(0)
-{
-    // Intel says to do this, so we're doing it.
-    _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
-    _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
-
-    // Create the embree device and scene.
-    rtcDevice_ = rtcNewDevice(NULL);
-
-    rtcDeviceSetErrorFunction(rtcDevice_, RTCErrorCallback);
-
-    rtcScene_ = rtcDeviceNewScene(rtcDevice_, RTC_SCENE_STATIC, RTC_INTERSECT1);
+    embreeScene_ = new EmbreeScene(context_);
 }
 
 SceneBaker::~SceneBaker()
@@ -65,6 +50,7 @@ SceneBaker::~SceneBaker()
 
 }
 
+/*
 bool SceneBaker::TryAddStaticModelBaker(StaticModelBaker *bakeModel)
 {
     Image* lightmap = bakeModel->GetLightmap();
@@ -235,9 +221,45 @@ void SceneBaker::FilterLightmap(Image* lightmap)
     }
 
 }
+*/
+
+void SceneBaker::TraceRay(LightRay* lightRay, const PODVector<BakeLight*>& bakeLights_)
+{
+    for (unsigned i = 0; i < bakeLights_.Size(); i++)
+    {
+        bakeLights_[i]->Light(lightRay);
+    }
+}
 
 bool SceneBaker::Light()
+{    
+    for (unsigned i = 0; i < bakeMeshes_.Size(); i++)
+    {
+        BakeMesh* mesh = bakeMeshes_[i];
+        mesh->Light();
+    }
+
+
+/*
+enum RTCIntersectFlags
 {
+  RTC_INTERSECT_COHERENT                 = 0,  //!< optimize for coherent rays
+  RTC_INTERSECT_INCOHERENT               = 1   //!< optimize for incoherent rays
+};
+
+struct RTCIntersectContext
+{
+  RTCIntersectFlags flags;   //!< intersection flags
+  void* userRayExt;          //!< can be used to pass extended ray data to callbacks
+};
+
+    RTCIntersectContext context;
+    context.flags = g_iflags;
+    rtcIntersect1Ex(g_scene,&context,ray);
+*/
+
+
+    /*
     StaticModelBaker* bakeModel;
 
     Vector<SharedPtr<StaticModelBaker>>::Iterator itr = staticModelBakers_.Begin();
@@ -252,7 +274,7 @@ bool SceneBaker::Light()
             continue;
         }
 
-        //bakeModel->TraceAORays(256, 1.0f);
+        //bakeModel->TraceAORays(512, 1.0f);
         bakeModel->TraceSunLight();
         bakeModel->ProcessLightmap();
         itr++;
@@ -317,26 +339,43 @@ bool SceneBaker::Light()
 
     File saveFile(context_, scenefilename, FILE_WRITE);
     scene_->SaveXML(saveFile);
+    */
 
     return true;
+
+}
+
+void SceneBaker::QueryLights(const BoundingBox& bbox, PODVector<BakeLight*>& lights)
+{
+    lights.Clear();
+
+    for (unsigned i = 0; i < bakeLights_.Size(); i++)
+    {
+
+        // TODO: filter on range, groups, etc
+        lights.Push(bakeLights_[i]);
+
+    }
 
 }
 
 bool SceneBaker::Preprocess()
 {
-    Vector<SharedPtr<StaticModelBaker>>::Iterator itr = staticModelBakers_.Begin();
+    Vector<SharedPtr<BakeMesh>>::Iterator itr = bakeMeshes_.Begin();
 
-    while (itr != staticModelBakers_.End())
+    while (itr != bakeMeshes_.End())
     {
         (*itr)->Preprocess();
+        embreeScene_->AddMeshMap(*itr);
         itr++;
-    }
+    }   
 
-    rtcCommit(rtcScene_);
+    embreeScene_->Commit();
 
     return true;
 }
 
+/*
 static bool CompareStaticModelBaker(StaticModelBaker* lhs, StaticModelBaker* rhs)
 {
     int lhsWeight = lhs->GetLightmap() ? lhs->GetLightmap()->GetWidth() : 0;
@@ -347,6 +386,7 @@ static bool CompareStaticModelBaker(StaticModelBaker* lhs, StaticModelBaker* rhs
 
     return lhsWeight < rhsWeight;
 }
+*/
 
 
 bool SceneBaker::LoadScene(const String& filename)
@@ -367,10 +407,6 @@ bool SceneBaker::LoadScene(const String& filename)
         return false;
     }
 
-
-    sunDir_ = Vector3(-0.6f, 1.0f, -0.8f);
-    sunDir_.Normalize();
-
     PODVector<Node*> lightNodes;
     scene_->GetChildrenWithComponent<Atomic::Light>(lightNodes, true);
 
@@ -380,9 +416,9 @@ bool SceneBaker::LoadScene(const String& filename)
 
         if (light->GetLightType() == LIGHT_DIRECTIONAL)
         {
-            sunDir_ = lightNodes[i]->GetDirection();
-            sunDir_ = -sunDir_;
-            sunDir_.Normalize();
+            SharedPtr<BakeLightDirectional> dlight(new BakeLightDirectional(context_, this));
+            dlight->SetLight(light);
+            bakeLights_.Push(dlight);
         }
     }
 
@@ -395,14 +431,15 @@ bool SceneBaker::LoadScene(const String& filename)
 
         if (staticModel->GetModel() && (staticModel->GetLightmap() ||staticModel->GetCastShadows()))
         {
-            StaticModelBaker* baker = new StaticModelBaker(context_, this, staticModel);
-            staticModelBakers_.Push(SharedPtr<StaticModelBaker>(baker));
+            SharedPtr<BakeMesh> meshMap (new BakeMesh(context_, this));
+            meshMap->SetStaticModel(staticModel);
+            bakeMeshes_.Push(meshMap);
         }
 
     }
 
     // Sort by lightmap size
-    Sort(staticModelBakers_.Begin(), staticModelBakers_.End(), CompareStaticModelBaker);
+    // Sort(staticModelBakers_.Begin(), staticModelBakers_.End(), CompareStaticModelBaker);
 
     return true;
 }

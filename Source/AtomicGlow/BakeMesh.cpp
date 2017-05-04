@@ -1,0 +1,333 @@
+// Copyright (c) 2014-2017, THUNDERBEAST GAMES LLC All rights reserved
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+//
+
+#include "EmbreePrivate.h"
+#include "EmbreeScene.h"
+
+#include <Atomic/IO/Log.h>
+
+#include "Raster.h"
+#include "LightRay.h"
+#include "SceneBaker.h"
+#include "BakeMesh.h"
+
+namespace AtomicGlow
+{
+
+BakeMesh::BakeMesh(Context* context, SceneBaker *sceneBaker) : BakeNode(context, sceneBaker),
+    numVertices_(0),
+    numTriangles_(0),
+    radianceHeight_(0),
+    radianceWidth_(0),
+    embreeGeomID_(RTC_INVALID_GEOMETRY_ID)
+{
+
+}
+
+BakeMesh::~BakeMesh()
+{
+
+}
+
+
+bool BakeMesh::FillLexelsCallback(void* param, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage)
+{
+    return ((ShaderData*) param)->bakeMesh_->LightPixel((ShaderData*) param, x, y, barycentric, dx, dy, coverage);
+}
+
+bool BakeMesh::LightPixel(BakeMesh::ShaderData* shaderData, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage)
+{
+
+    MMTriangle* tri = &triangles_[shaderData->triangleIdx_];
+    MMVertex* verts[3];
+
+    verts[0] = &vertices_[tri->indices_[0]];
+    verts[1] = &vertices_[tri->indices_[1]];
+    verts[2] = &vertices_[tri->indices_[2]];
+
+    LightRay ray;
+    LightRay::SampleSource& sample = ray.GetSampleSource();
+
+    sample.bakeMesh = this;
+
+    sample.triangle = shaderData->triangleIdx_;
+
+    sample.radianceX = x;
+    sample.radianceY = y;
+
+    sample.position = verts[0]->position_ * barycentric.x_ +
+                      verts[1]->position_ * barycentric.y_ +
+                      verts[2]->position_ * barycentric.z_;
+
+    sample.normal = verts[0]->normal_ * barycentric.x_ +
+                    verts[1]->normal_ * barycentric.y_ +
+                    verts[2]->normal_ * barycentric.z_;
+
+    sample.uv0  = verts[0]->uv0_ * barycentric.x_ +
+                  verts[1]->uv0_ * barycentric.y_ +
+                  verts[2]->uv0_ * barycentric.z_;
+
+    sample.uv1  = verts[0]->uv1_ * barycentric.x_ +
+                  verts[1]->uv1_ * barycentric.y_ +
+                  verts[2]->uv1_ * barycentric.z_;
+
+    // hack ambient
+    const Vector3 ambient(.2f, .2f, .2f);
+    SetRadiance(x, y, ambient);
+
+    sceneBaker_->TraceRay(&ray, bakeLights_);
+
+    return true;
+}
+
+void BakeMesh::SetRadiance(int x, int y, const Vector3& radiance)
+{
+    radiance_[y * radianceWidth_ + x] = radiance;
+}
+
+
+void BakeMesh::Light()
+{
+    if (!GetLightmap() || !radianceWidth_ || !radianceHeight_)
+        return;
+
+    // for all triangles
+
+    Vector2 extents(radianceWidth_, radianceHeight_);
+    Vector2 triUV1[3];
+
+    ShaderData shaderData;
+
+    shaderData.bakeMesh_ = this;
+
+    for (unsigned i = 0; i < numTriangles_; i++)
+    {
+        shaderData.triangleIdx_ = i;
+
+        for (unsigned j = 0; j < 3; j++)
+        {
+            unsigned idx = triangles_[i].indices_[j];
+            triUV1[j] = vertices_[idx].uv1_;
+            triUV1[j].x_ *= float(radianceWidth_);
+            triUV1[j].y_ *= float(radianceHeight_);
+        }
+
+        Raster::DrawTriangle(true, extents, true, triUV1, FillLexelsCallback, &shaderData );
+
+    }
+
+    static int id = 0;
+
+    SharedPtr<Image> lightmap(new Image(context_));
+    lightmap->SetSize(radianceWidth_, radianceHeight_, 3);
+
+    Color c;
+    for (unsigned y = 0; y < radianceHeight_; y++)
+    {
+        for (unsigned x = 0; x < radianceWidth_; x++)
+        {
+            const Vector3 rad = radiance_[y * radianceWidth_ + x];
+
+            c.r_ = rad.x_;
+            c.g_ = rad.y_;
+            c.b_ = rad.z_;
+
+            lightmap->SetPixel(x, y, c);
+
+        }
+
+    }
+
+    lightmap->SavePNG(ToString("/Users/jenge/Desktop/lightmap%i.png", id++));
+
+
+
+}
+
+void BakeMesh::Preprocess()
+{
+
+    RTCScene scene = sceneBaker_->GetEmbreeScene()->GetEmbree()->rtcScene_;
+
+    // Create the embree mesh
+    embreeGeomID_ = rtcNewTriangleMesh(scene, RTC_GEOMETRY_STATIC, numTriangles_, numVertices_);
+    rtcSetUserData(scene, embreeGeomID_, this);
+    //rtcSetOcclusionFilterFunction(scene, embreeGeomID_, MyRTCFilterFunc);
+
+    // Populate vertices
+
+    float* vertices = (float*) rtcMapBuffer(scene, embreeGeomID_, RTC_VERTEX_BUFFER);
+
+    MMVertex* vIn = &vertices_[0];
+
+    for (unsigned i = 0; i < numVertices_; i++, vertices++, vIn++)
+    {
+        *vertices++ = vIn->position_.x_;
+        *vertices++ = vIn->position_.y_;
+        *vertices++ = vIn->position_.z_;
+    }
+
+    rtcUnmapBuffer(scene, embreeGeomID_, RTC_VERTEX_BUFFER);
+
+    uint32_t* triangles = (uint32_t*) rtcMapBuffer(scene, embreeGeomID_, RTC_INDEX_BUFFER);
+
+    for (size_t i = 0; i < numTriangles_; i++)
+    {
+        MMTriangle* tri = &triangles_[i];
+
+        *triangles++ = tri->indices_[0];
+        *triangles++ = tri->indices_[1];
+        *triangles++ = tri->indices_[2];
+    }
+
+    rtcUnmapBuffer(scene, embreeGeomID_, RTC_INDEX_BUFFER);
+
+    // if we aren't lightmapped, we just contribute to occlusion
+    if (!GetLightmap())
+        return;
+
+    sceneBaker_->QueryLights(boundingBox_, bakeLights_);
+
+    radiance_ = new Vector3[radianceWidth_ * radianceHeight_];
+    memset(&radiance_[0], 0, sizeof(Vector3) * radianceWidth_ * radianceHeight_);
+}
+
+
+bool BakeMesh::SetStaticModel(StaticModel* staticModel)
+{
+    if (!staticModel || !staticModel->GetNode())
+        return false;
+
+    staticModel_ = staticModel;
+    node_ = staticModel_->GetNode();
+
+    bakeModel_ = GetSubsystem<BakeModelCache>()->GetBakeModel(staticModel_->GetModel());
+
+    if (bakeModel_.Null())
+    {
+        return false;
+    }
+
+    ModelPacker* modelPacker = bakeModel_->GetModelPacker();
+
+    if (modelPacker->lodLevels_.Size() < 1)
+    {
+        return false;
+    }
+
+    MPLODLevel* lodLevel = modelPacker->lodLevels_[0];
+
+    // LOD must have LM coords
+
+    if (!lodLevel->HasElement(TYPE_VECTOR2, SEM_TEXCOORD, 1))
+    {
+        return false;
+    }
+
+    // materials
+
+    if (staticModel_->GetNumGeometries() != lodLevel->mpGeometry_.Size())
+    {
+        ATOMIC_LOGERROR("StaticModelBaker::Preprocess() - Geometry mismatch");
+        return false;
+    }
+
+    // TODO: calculate
+    unsigned lmSize = staticModel_->GetLightmapSize() ? staticModel_->GetLightmapSize() : 256;
+
+    if (lmSize > 4096)
+        lmSize = 4096;
+
+    radianceWidth_ = lmSize;
+    radianceHeight_ = lmSize;
+
+    for (unsigned i = 0; i < staticModel_->GetNumGeometries(); i++)
+    {
+        BakeMaterial* bakeMaterial = GetSubsystem<BakeMaterialCache>()->GetBakeMaterial(staticModel_->GetMaterial(i));
+        bakeMaterials_.Push(bakeMaterial);
+    }
+
+    // allocate
+
+    numVertices_ = 0;
+    unsigned totalIndices = 0;
+
+    lodLevel->GetTotalCounts(numVertices_, totalIndices);
+
+    if (!numVertices_ || ! totalIndices)
+    {
+        return false;
+    }
+
+    numTriangles_ = totalIndices/3;
+
+    vertices_ = new MMVertex[numVertices_];
+    triangles_ = new MMTriangle[numTriangles_];
+
+    MMVertex* vOut = &vertices_[0];
+    MMTriangle* tri = &triangles_[0];
+
+    unsigned vertexStart = 0;
+    unsigned indexStart = 0;
+
+    const Matrix3x4& wtransform = node_->GetWorldTransform();
+
+    for (unsigned i = 0; i < lodLevel->mpGeometry_.Size(); i++)
+    {
+        MPGeometry* mpGeo = lodLevel->mpGeometry_[i];
+
+        // Copy Vertices
+
+        MPVertex* vIn = &mpGeo->vertices_[0];
+
+        for (unsigned j = 0; j < mpGeo->vertices_.Size(); j++)
+        {
+            vOut->position_ = wtransform * vIn->position_;
+            vOut->normal_ = wtransform.Rotation() * vIn->normal_;
+            vOut->uv0_ = vIn->uv0_;
+            vOut->uv1_ = vIn->uv1_;
+
+            boundingBox_.Merge(vOut->position_);
+
+            vOut++;
+            vIn++;
+        }
+
+        // Copy Indices
+
+        for (unsigned j = 0; j < mpGeo->numIndices_; j+=3, tri++)
+        {
+            tri->materialIndex_ = i;
+
+            tri->indices_[0] = mpGeo->indices_[j] + vertexStart;
+            tri->indices_[1] = mpGeo->indices_[j + 1] + vertexStart;
+            tri->indices_[2] = mpGeo->indices_[j + 2] + vertexStart;
+        }
+
+        indexStart  += mpGeo->numIndices_;
+        vertexStart += mpGeo->vertices_.Size();
+    }
+
+    return true;
+
+}
+
+}

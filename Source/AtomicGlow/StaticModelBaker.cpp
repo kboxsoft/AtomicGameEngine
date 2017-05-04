@@ -19,6 +19,8 @@
 // THE SOFTWARE.
 //
 
+#ifdef _DISABLED
+
 #include <Atomic/Core/StringUtils.h>
 #include <Atomic/IO/Log.h>
 #include <Atomic/Resource/Image.h>
@@ -628,3 +630,5 @@ bool StaticModelBaker::Preprocess()
 }
 
 }
+
+#endif

@@ -28,23 +28,6 @@ using namespace ToolCore;
 namespace AtomicGlow
 {
 
-struct LMVertex
-{
-    Vector3 position_;
-    Vector3 normal_;
-    Vector2 uv0_;
-    Vector2 uv1_;
-};
-
-struct LMLexel
-{
-    Vector3 position_;
-    Vector3 normal_;
-    Vector2 pixelCoord_;
-    Color color_;
-    Color diffuseColor_;
-};
-
 class BakeModel : public Object
 {
     ATOMIC_OBJECT(BakeModel, Object)

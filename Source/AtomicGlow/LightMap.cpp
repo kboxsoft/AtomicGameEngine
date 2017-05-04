@@ -19,54 +19,65 @@
 // THE SOFTWARE.
 //
 
-#pragma once
+#include <Atomic/Resource/Image.h>
 
-#include <Atomic/Scene/Scene.h>
-
-using namespace Atomic;
+#include "LightMap.h"
 
 namespace AtomicGlow
 {
 
-class LightRay;
-class BakeMesh;
-class BakeLight;
-class EmbreeScene;
-
-class SceneBaker : public Object
+LightMap::LightMap(Context* context) : Object(context)
 {
-    ATOMIC_OBJECT(SceneBaker, Object)
 
-    public:
+}
 
-    SceneBaker(Context* context);
-    virtual ~SceneBaker();
+LightMap::~LightMap()
+{
 
-    bool Preprocess();
+}
 
-    bool Light();
+void LightMap::BoxFilterImage()
+{
+    // Box 3x3 Filter
 
-    bool LoadScene(const String& filename);
+    SharedPtr<Image> tmp(new Image(context_));
+    tmp->SetSize(image_->GetWidth(), image_->GetHeight(), image_->GetComponents());
+    tmp->Clear(Color::BLACK);
 
-    void QueryLights(const BoundingBox& bbox, PODVector<BakeLight*>& lights);
+    for (int y = 0; y < image_->GetHeight(); y++)
+    {
+        for (int x = 0; x < image_->GetWidth(); x++)
+        {
+            Color color = image_->GetPixel(x-1, y);
+            color += image_->GetPixel(x, y);
+            color += image_->GetPixel(x+1, y);
 
-    void TraceRay(LightRay* lightRay, const PODVector<AtomicGlow::BakeLight *>& bakeLights_);
+            color.r_ /= 3.0f;
+            color.g_ /= 3.0f;
+            color.b_ /= 3.0f;
 
-    EmbreeScene* GetEmbreeScene() const { return embreeScene_; }
+            tmp->SetPixel(x, y, color);
+        }
+    }
 
-private:
+    for (int y = 0; y < image_->GetHeight(); y++)
+    {
+        for (int x = 0; x < image_->GetWidth(); x++)
+        {
+            Color color = tmp->GetPixel(x, y-1);
+            color += tmp->GetPixel(x, y);
+            color += tmp->GetPixel(x, y+1);
 
-    //void FilterLightmap(Image* lightmap);
-    //void EmitLightmap(int lightMapIndex);
-    //bool TryAddStaticModelBaker(StaticModelBaker *bakeModel);
+            color.r_ /= 3.0f;
+            color.g_ /= 3.0f;
+            color.b_ /= 3.0f;
 
-    SharedPtr<Scene> scene_;
-    SharedPtr<EmbreeScene> embreeScene_;
+            image_->SetPixel(x, y, color);
 
-    Vector<SharedPtr<BakeMesh>> bakeMeshes_;
+        }
 
-    Vector<SharedPtr<BakeLight>> bakeLights_;
+    }
 
-};
+}
 
 }

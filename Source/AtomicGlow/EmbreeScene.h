@@ -21,52 +21,39 @@
 
 #pragma once
 
-#include <Atomic/Scene/Scene.h>
-
-using namespace Atomic;
+#include <Atomic/Core/Object.h>
 
 namespace AtomicGlow
 {
 
-class LightRay;
-class BakeMesh;
-class BakeLight;
-class EmbreeScene;
+using namespace Atomic;
 
-class SceneBaker : public Object
+class EmbreeScenePrivate;
+class BakeMesh;
+
+class EmbreeScene : public Object
 {
-    ATOMIC_OBJECT(SceneBaker, Object)
+    ATOMIC_OBJECT(EmbreeScene, Object)
 
     public:
 
-    SceneBaker(Context* context);
-    virtual ~SceneBaker();
+    EmbreeScene(Context* context);
+    virtual ~EmbreeScene();
 
-    bool Preprocess();
+    bool AddMeshMap(BakeMesh* meshMap);
 
-    bool Light();
+    void Commit();
 
-    bool LoadScene(const String& filename);
-
-    void QueryLights(const BoundingBox& bbox, PODVector<BakeLight*>& lights);
-
-    void TraceRay(LightRay* lightRay, const PODVector<AtomicGlow::BakeLight *>& bakeLights_);
-
-    EmbreeScene* GetEmbreeScene() const { return embreeScene_; }
+    EmbreeScenePrivate* GetEmbree() { return d_; }
 
 private:
 
-    //void FilterLightmap(Image* lightmap);
-    //void EmitLightmap(int lightMapIndex);
-    //bool TryAddStaticModelBaker(StaticModelBaker *bakeModel);
+    // embree geomID -> MeshMap
+    HashMap<unsigned, BakeMesh*> meshMapLookup_;
 
-    SharedPtr<Scene> scene_;
-    SharedPtr<EmbreeScene> embreeScene_;
-
-    Vector<SharedPtr<BakeMesh>> bakeMeshes_;
-
-    Vector<SharedPtr<BakeLight>> bakeLights_;
+    EmbreeScenePrivate* d_;
 
 };
+
 
 }

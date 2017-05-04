@@ -21,51 +21,41 @@
 
 #pragma once
 
-#include <Atomic/Scene/Scene.h>
+// Should be the only place embree headers are included
+# define EMBREE_PRIVATE
 
-using namespace Atomic;
+#include <embree2/rtcore.h>
+#include <embree2/rtcore_ray.h>
+
+#include "EmbreeMath.h"
 
 namespace AtomicGlow
 {
 
+// various private embree stuff, so various classes can access them
+
 class LightRay;
-class BakeMesh;
-class BakeLight;
 class EmbreeScene;
 
-class SceneBaker : public Object
+class EmbreeRayPrivate
 {
-    ATOMIC_OBJECT(SceneBaker, Object)
+public:
 
-    public:
+    friend class LightRay;
+    RTCRay ray_;
+};
 
-    SceneBaker(Context* context);
-    virtual ~SceneBaker();
+class EmbreeScenePrivate
+{
 
-    bool Preprocess();
+public:
 
-    bool Light();
+    EmbreeScenePrivate(EmbreeScene* embreeScene);
 
-    bool LoadScene(const String& filename);
+    EmbreeScene* embreeScene_;
 
-    void QueryLights(const BoundingBox& bbox, PODVector<BakeLight*>& lights);
-
-    void TraceRay(LightRay* lightRay, const PODVector<AtomicGlow::BakeLight *>& bakeLights_);
-
-    EmbreeScene* GetEmbreeScene() const { return embreeScene_; }
-
-private:
-
-    //void FilterLightmap(Image* lightmap);
-    //void EmitLightmap(int lightMapIndex);
-    //bool TryAddStaticModelBaker(StaticModelBaker *bakeModel);
-
-    SharedPtr<Scene> scene_;
-    SharedPtr<EmbreeScene> embreeScene_;
-
-    Vector<SharedPtr<BakeMesh>> bakeMeshes_;
-
-    Vector<SharedPtr<BakeLight>> bakeLights_;
+    RTCDevice rtcDevice_;
+    RTCScene rtcScene_;
 
 };
 

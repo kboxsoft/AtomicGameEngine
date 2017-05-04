@@ -19,54 +19,23 @@
 // THE SOFTWARE.
 //
 
-#pragma once
+#include "SceneBaker.h"
 
-#include <Atomic/Scene/Scene.h>
+#include "BakeNode.h"
 
-using namespace Atomic;
 
 namespace AtomicGlow
 {
 
-class LightRay;
-class BakeMesh;
-class BakeLight;
-class EmbreeScene;
 
-class SceneBaker : public Object
+BakeNode::BakeNode(Context* context, SceneBaker* sceneBaker) : Object(context),
+    sceneBaker_(sceneBaker)
 {
-    ATOMIC_OBJECT(SceneBaker, Object)
+}
 
-    public:
+BakeNode::~BakeNode()
+{
 
-    SceneBaker(Context* context);
-    virtual ~SceneBaker();
-
-    bool Preprocess();
-
-    bool Light();
-
-    bool LoadScene(const String& filename);
-
-    void QueryLights(const BoundingBox& bbox, PODVector<BakeLight*>& lights);
-
-    void TraceRay(LightRay* lightRay, const PODVector<AtomicGlow::BakeLight *>& bakeLights_);
-
-    EmbreeScene* GetEmbreeScene() const { return embreeScene_; }
-
-private:
-
-    //void FilterLightmap(Image* lightmap);
-    //void EmitLightmap(int lightMapIndex);
-    //bool TryAddStaticModelBaker(StaticModelBaker *bakeModel);
-
-    SharedPtr<Scene> scene_;
-    SharedPtr<EmbreeScene> embreeScene_;
-
-    Vector<SharedPtr<BakeMesh>> bakeMeshes_;
-
-    Vector<SharedPtr<BakeLight>> bakeLights_;
-
-};
+}
 
 }

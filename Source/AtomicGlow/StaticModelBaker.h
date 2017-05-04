@@ -19,6 +19,8 @@
 // THE SOFTWARE.
 //
 
+#ifdef _DISABLED
+
 #pragma once
 
 #include <Atomic/Graphics/StaticModel.h>
@@ -111,3 +113,5 @@ private:
 };
 
 }
+
+#endif

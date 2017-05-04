@@ -21,52 +21,41 @@
 
 #pragma once
 
-#include <Atomic/Scene/Scene.h>
+#include <Atomic/Core/Object.h>
 
-using namespace Atomic;
+namespace Atomic
+{
+
+class Image;
+
+}
 
 namespace AtomicGlow
 {
 
-class LightRay;
-class BakeMesh;
-class BakeLight;
-class EmbreeScene;
+using namespace Atomic;
 
-class SceneBaker : public Object
+// fixme: this needs to be configurable
+const int LIGHTMAP_WIDTH = 1024;
+const int LIGHTMAP_HEIGHT = 1024;
+
+class LightMap : public Object
 {
-    ATOMIC_OBJECT(SceneBaker, Object)
+    ATOMIC_OBJECT(LightMap, Object)
 
     public:
 
-    SceneBaker(Context* context);
-    virtual ~SceneBaker();
-
-    bool Preprocess();
-
-    bool Light();
-
-    bool LoadScene(const String& filename);
-
-    void QueryLights(const BoundingBox& bbox, PODVector<BakeLight*>& lights);
-
-    void TraceRay(LightRay* lightRay, const PODVector<AtomicGlow::BakeLight *>& bakeLights_);
-
-    EmbreeScene* GetEmbreeScene() const { return embreeScene_; }
+    LightMap(Context* context);
+    virtual ~LightMap();
 
 private:
 
-    //void FilterLightmap(Image* lightmap);
-    //void EmitLightmap(int lightMapIndex);
-    //bool TryAddStaticModelBaker(StaticModelBaker *bakeModel);
+    void BoxFilterImage();
 
-    SharedPtr<Scene> scene_;
-    SharedPtr<EmbreeScene> embreeScene_;
 
-    Vector<SharedPtr<BakeMesh>> bakeMeshes_;
-
-    Vector<SharedPtr<BakeLight>> bakeLights_;
+    SharedPtr<Image> image_;
 
 };
+
 
 }
