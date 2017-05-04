@@ -159,13 +159,6 @@ void BakeMesh::GenerateRadianceMap()
     image->SetSize(radianceWidth_, radianceHeight_, 3);
     image->Clear(Color::BLACK);
 
-    Color ambient = Color::BLACK;
-
-    if (staticModel_ && staticModel_->GetZone())
-    {
-        ambient = staticModel_->GetZone()->GetAmbientColor();
-    }
-
     Color c;
     for (unsigned y = 0; y < radianceHeight_; y++)
     {
@@ -243,6 +236,27 @@ void BakeMesh::GenerateRadianceMap()
             }
         }
     }
+
+    Color ambient = Color::BLACK;
+
+    if (staticModel_ && staticModel_->GetZone())
+    {
+        ambient = staticModel_->GetZone()->GetAmbientColor();
+    }
+
+    if (ambient != Color::BLACK)
+    {
+        for (int y = 0; y < radianceHeight_ ; y++)
+        {
+            for (int x = 0; x < radianceWidth_; x++)
+            {
+                if (image->GetPixel(x, y) == Color::BLACK)
+                    image->SetPixel(x, y, ambient);
+
+            }
+        }
+    }
+
 }
 
 void BakeMesh::Light()

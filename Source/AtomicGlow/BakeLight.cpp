@@ -91,8 +91,8 @@ void DirectionalBakeLight::Light(LightRay* lightRay)
 
     float angle = direction_.DotProduct(source.normal);
 
-    //if (angle < 0.0f)
-    //    return;
+    if (angle < 0.0f)
+        return;
 
     lightRay->SetupRay(source.position, direction_);
 
@@ -104,7 +104,7 @@ void DirectionalBakeLight::Light(LightRay* lightRay)
 
     Vector3 rad(color_.r_, color_.g_, color_.b_);
 
-    //rad*=angle;
+    rad*=angle;
 
     source.bakeMesh->ContributeRadiance(source.radianceX, source.radianceY, rad);
 
