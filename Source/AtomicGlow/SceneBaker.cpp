@@ -366,7 +366,6 @@ bool SceneBaker::Preprocess()
     while (itr != bakeMeshes_.End())
     {
         (*itr)->Preprocess();
-        embreeScene_->AddMeshMap(*itr);
         itr++;
     }   
 

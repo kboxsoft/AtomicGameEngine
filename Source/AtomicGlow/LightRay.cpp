@@ -25,8 +25,6 @@
 #include <cmath>
 #include <cfloat>
 
-#include "EmbreePrivate.h"
-
 #include "LightRay.h"
 
 namespace AtomicGlow
@@ -34,108 +32,42 @@ namespace AtomicGlow
 
 LightRay::LightRay()
 {
-    d_ = new EmbreeRayPrivate();
 
-    Clear();
 }
 
 LightRay::~LightRay()
 {
-    delete d_;
-}
-
-void LightRay::Clear()
-{
-    const float E = 0.001f;
-
-    SetOrigin(Vector3::ZERO);
-    SetDir(Vector3::ZERO);
-    SetTNear(E);
-    SetTFar(100000.0f);
-
-    d_->ray_.mask = 0xFFFFFFFF;
-    d_->ray_.time = 0.0f;
-
-    ClearHit();
 
 }
 
 void LightRay::ClearHit()
 {
-    d_->ray_.geomID = RTC_INVALID_GEOMETRY_ID;
-    d_->ray_.primID = RTC_INVALID_GEOMETRY_ID;
-    d_->ray_.instID = RTC_INVALID_GEOMETRY_ID;
-    d_->ray_.u = 0.0f;
-    d_->ray_.v = 0.0f;
-    d_->ray_.Ng[0] = d_->ray_.Ng[1] = d_->ray_.Ng[2] = 0.0f;
+    rtcRay_.geomID = RTC_INVALID_GEOMETRY_ID;
+    rtcRay_.primID = RTC_INVALID_GEOMETRY_ID;
+    rtcRay_.instID = RTC_INVALID_GEOMETRY_ID;
+    rtcRay_.u = 0.0f;
+    rtcRay_.v = 0.0f;
+    rtcRay_.Ng[0] = rtcRay_.Ng[1] = rtcRay_.Ng[2] = 0.0f;
 }
 
-void LightRay::SetOrigin(const Vector3& origin)
+
+void LightRay::SetupRay(const Vector3& origin, const Vector3& dir, float tNear, float tFar)
 {
-    d_->ray_.org[0] = origin.x_;
-    d_->ray_.org[1] = origin.y_;
-    d_->ray_.org[2] = origin.z_;
-}
+    rtcRay_.org[0] = origin.x_;
+    rtcRay_.org[1] = origin.y_;
+    rtcRay_.org[2] = origin.z_;
 
-const Vector3 LightRay::GetOrigin() const
-{
-    return Vector3(d_->ray_.org[0], d_->ray_.org[1], d_->ray_.org[2]);
-}
+    rtcRay_.dir[0] = dir.x_;
+    rtcRay_.dir[1] = dir.y_;
+    rtcRay_.dir[2] = dir.z_;
 
-void LightRay::SetDir(const Vector3& dir)
-{
-    d_->ray_.dir[0] = dir.x_;
-    d_->ray_.dir[1] = dir.y_;
-    d_->ray_.dir[2] = dir.z_;
+    rtcRay_.tnear = tNear;
+    rtcRay_.tfar = tFar;
 
-}
+    rtcRay_.mask = 0xFFFFFFFF;
+    rtcRay_.time = 0.0f;
 
-const Vector3 LightRay::GetDir() const
-{
-    return Vector3(d_->ray_.dir[0], d_->ray_.dir[1], d_->ray_.dir[2]);
-}
-
-// Start of ray segment
-void LightRay::SetTNear(float tnear)
-{
-    d_->ray_.tnear = tnear;
-}
-
-float LightRay::GetTNear() const
-{
-    return d_->ray_.tnear;
-}
-
-// End of ray segment (set to hit distance)
-void LightRay::SetTFar(float tfar)
-{
-    d_->ray_.tfar = tfar;
-}
-
-float LightRay::GetTFar() const
-{
-    return d_->ray_.tfar;
-}
-
-BakeMesh* LightRay::GetHitMesh()
-{
-
-}
-
-Vector3 LightRay::GetHitNormal()
-{
-
-}
-
-Vector3 LightRay::GetHitBaryCentric()
-{
-    const RTCRay& ray = d_->ray_;
-    return Vector3 (ray.u, ray.v, 1.0f-ray.u-ray.v);
-}
-
-unsigned LightRay::GetHitTriangle()
-{
-
+    ClearHit();
 }
 
 }

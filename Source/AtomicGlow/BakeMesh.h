@@ -21,6 +21,8 @@
 
 #pragma once
 
+#include "Embree.h"
+
 #include <Atomic/Graphics/StaticModel.h>
 
 #include "BakeMaterial.h"
@@ -93,6 +95,8 @@ class BakeMesh : public BakeNode
 
     void SetRadiance(int x, int y, const Vector3 &radiance);
 
+    unsigned GetGeomID() const { return embreeGeomID_; }
+
 private:
 
     struct ShaderData
@@ -102,6 +106,7 @@ private:
     };
 
     static bool FillLexelsCallback(void* param, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage);
+    static void OcclusionFilter(void* ptr, RTCRay& ray);
 
     bool LightPixel(ShaderData* shaderData, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage);
 

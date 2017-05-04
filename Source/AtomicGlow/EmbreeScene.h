@@ -21,6 +21,8 @@
 
 #pragma once
 
+#include "Embree.h"
+
 #include <Atomic/Core/Object.h>
 
 namespace AtomicGlow
@@ -38,20 +40,20 @@ class EmbreeScene : public Object
     public:
 
     EmbreeScene(Context* context);
-    virtual ~EmbreeScene();
-
-    bool AddMeshMap(BakeMesh* meshMap);
+    virtual ~EmbreeScene();    
 
     void Commit();
 
-    EmbreeScenePrivate* GetEmbree() { return d_; }
+    RTCScene GetRTCScene() const { return rtcScene_; }
 
 private:
 
     // embree geomID -> MeshMap
     HashMap<unsigned, BakeMesh*> meshMapLookup_;
 
-    EmbreeScenePrivate* d_;
+    RTCDevice rtcDevice_;
+    RTCScene rtcScene_;
+
 
 };
 

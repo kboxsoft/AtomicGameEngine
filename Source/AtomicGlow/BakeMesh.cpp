@@ -19,7 +19,6 @@
 // THE SOFTWARE.
 //
 
-#include "EmbreePrivate.h"
 #include "EmbreeScene.h"
 
 #include <Atomic/IO/Log.h>
@@ -64,7 +63,7 @@ bool BakeMesh::LightPixel(BakeMesh::ShaderData* shaderData, int x, int y, const 
     verts[2] = &vertices_[tri->indices_[2]];
 
     LightRay ray;
-    LightRay::SampleSource& sample = ray.GetSampleSource();
+    LightRay::SamplePoint& sample = ray.samplePoint_;
 
     sample.bakeMesh = this;
 
@@ -165,12 +164,12 @@ void BakeMesh::Light()
 void BakeMesh::Preprocess()
 {
 
-    RTCScene scene = sceneBaker_->GetEmbreeScene()->GetEmbree()->rtcScene_;
+    RTCScene scene = sceneBaker_->GetEmbreeScene()->GetRTCScene();
 
     // Create the embree mesh
     embreeGeomID_ = rtcNewTriangleMesh(scene, RTC_GEOMETRY_STATIC, numTriangles_, numVertices_);
     rtcSetUserData(scene, embreeGeomID_, this);
-    //rtcSetOcclusionFilterFunction(scene, embreeGeomID_, MyRTCFilterFunc);
+    rtcSetOcclusionFilterFunction(scene, embreeGeomID_, OcclusionFilter);
 
     // Populate vertices
 
@@ -178,11 +177,15 @@ void BakeMesh::Preprocess()
 
     MMVertex* vIn = &vertices_[0];
 
-    for (unsigned i = 0; i < numVertices_; i++, vertices++, vIn++)
+    for (unsigned i = 0; i < numVertices_; i++, vIn++)
     {
         *vertices++ = vIn->position_.x_;
         *vertices++ = vIn->position_.y_;
         *vertices++ = vIn->position_.z_;
+
+        // Note that RTC_VERTEX_BUFFER is 16 byte aligned, thus extra component
+        // which isn't used, though we'll initialize it
+        *vertices++ = 0.0f;
     }
 
     rtcUnmapBuffer(scene, embreeGeomID_, RTC_VERTEX_BUFFER);
@@ -246,7 +249,7 @@ bool BakeMesh::SetStaticModel(StaticModel* staticModel)
 
     if (staticModel_->GetNumGeometries() != lodLevel->mpGeometry_.Size())
     {
-        ATOMIC_LOGERROR("StaticModelBaker::Preprocess() - Geometry mismatch");
+        ATOMIC_LOGERROR("BakeMesh::Preprocess() - Geometry mismatch");
         return false;
     }
 
@@ -329,5 +332,41 @@ bool BakeMesh::SetStaticModel(StaticModel* staticModel)
     return true;
 
 }
+
+void BakeMesh::OcclusionFilter(void* ptr, RTCRay& ray)
+{
+    BakeMesh* bakeMesh = static_cast<BakeMesh*>(ptr);
+
+    MMTriangle* tri = &bakeMesh->triangles_[ray.primID];
+
+    BakeMaterial* material = bakeMesh->bakeMaterials_[tri->materialIndex_];
+
+    Image* diffuse = material->GetDiffuseTexture();
+
+    if (!diffuse)
+    {
+        return;
+    }
+
+    const Vector2& st0 = bakeMesh->vertices_[tri->indices_[0]].uv0_;
+    const Vector2& st1 = bakeMesh->vertices_[tri->indices_[1]].uv0_;
+    const Vector2& st2 = bakeMesh->vertices_[tri->indices_[2]].uv0_;
+
+    const float u = ray.u, v = ray.v, w = 1.0f-ray.u-ray.v;
+
+    const Vector2 st = w*st0 + u*st1 + v*st2;
+
+    int x = diffuse->GetWidth() * st.x_;
+    int y = diffuse->GetHeight() * st.y_;
+
+    Color color = diffuse->GetPixel(x, y);
+
+    if (color.a_ < 1.0f)
+    {
+        ray.geomID = RTC_INVALID_GEOMETRY_ID;
+    }
+
+}
+
 
 }

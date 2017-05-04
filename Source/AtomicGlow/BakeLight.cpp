@@ -20,7 +20,6 @@
 // THE SOFTWARE.
 //
 
-#include "EmbreePrivate.h"
 #include "EmbreeScene.h"
 
 #include "LightRay.h"
@@ -43,9 +42,6 @@ BakeLight::~BakeLight()
 
 // Directional Lights
 
-// for very small cones treat as singular light, because float precision is not good enough
-static const float DIRECTIONAL_COS_ANGLE_MAX = 0.99999988f;
-
 BakeLightDirectional::BakeLightDirectional(Context* context, SceneBaker* sceneBaker) : BakeLight(context, sceneBaker)
 {
 }
@@ -57,30 +53,14 @@ BakeLightDirectional::~BakeLightDirectional()
 
 void BakeLightDirectional::Light(LightRay* lightRay)
 {
-    RTCScene scene = sceneBaker_->GetEmbreeScene()->GetEmbree()->rtcScene_;
+    RTCScene scene = sceneBaker_->GetEmbreeScene()->GetRTCScene();
 
     const float E = 0.001f;
 
-    LightRay::SampleSource& source = lightRay->GetSampleSource();
+    LightRay::SamplePoint& source = lightRay->samplePoint_;
+    RTCRay& ray = lightRay->rtcRay_;
 
-    RTCRay& ray = lightRay->d_->ray_;
-
-    ray.org[0] = source.position.x_;
-    ray.org[1] = source.position.y_;
-    ray.org[2] = source.position.z_;
-
-    Vector3 dir = -node_->GetWorldDirection();
-    dir.Normalize();
-
-    ray.dir[0] = dir.x_;
-    ray.dir[1] = dir.y_;
-    ray.dir[2] = dir.z_;
-
-    ray.tnear = E;
-    ray.tfar = 100000.0f;
-
-    ray.mask = 0xFFFFFFFF;
-    ray.geomID = RTC_INVALID_GEOMETRY_ID;
+    lightRay->SetupRay(source.position, direction_);
 
     rtcOccluded(scene, ray);
 
@@ -94,43 +74,10 @@ void BakeLightDirectional::Light(LightRay* lightRay)
 void BakeLightDirectional::SetLight(Atomic::Light* light)
 {
     node_ = light->GetNode();
-}
 
-/*
-
-void BakeLightDirectional::Sample(SampleResult& result, const embree::DifferentialGeometry& dg, const embree::Vec2f& s)
-{
-
-    result.dir = frame_.vz;
-    result.dist = embree::inf;
-    result.pdf = pdf_;
-
-    if (cosAngle_ < DIRECTIONAL_COS_ANGLE_MAX)
-    {
-        result.dir = frame_ * embree::uniformSampleCone(cosAngle_, s);
-    }
-
-    result.weight = radiance_; // *pdf/pdf cancel
+    direction_ = -node_->GetWorldDirection();
+    direction_.Normalize();
 
 }
-
-void BakeLightDirectional::Eval(EvalResult& result, const embree::DifferentialGeometry& dg, const embree::Vec3fa& dir)
-{
-    result.dist = embree::inf;
-
-    if (cosAngle_ < DIRECTIONAL_COS_ANGLE_MAX && embree::dot(frame_.vz, dir) > cosAngle_)
-    {
-      result.value = radiance_ * pdf_;
-      result.pdf = pdf_;
-    }
-    else
-    {
-      result.value = embree::Vec3fa(0.f);
-      result.pdf = 0.f;
-    }
-
-}
-*/
-
 
 }

@@ -23,12 +23,14 @@
 
 #pragma once
 
+#include "Embree.h"
+
+#include "Atomic/Math/Vector3.h"
+
 using namespace Atomic;
 
 namespace AtomicGlow
 {
-
-class EmbreeRayPrivate;
 
 class BakeMesh;
 
@@ -40,9 +42,9 @@ public:
     LightRay();
     ~LightRay();
 
-    struct SampleSource
+    struct SamplePoint
     {
-        SampleSource()
+        SamplePoint()
         {
             Clear();
         }
@@ -53,7 +55,6 @@ public:
             triangle = 0;
             radianceX = 0;
             radianceY = 0;
-
             position = normal = Vector3::ZERO;
             uv0 = uv0 = Vector2::ZERO;
         }
@@ -71,38 +72,12 @@ public:
         Vector2 uv1;
     };
 
-    SampleSource& GetSampleSource() { return sampleSrc_; }
-
-    // Ray origin
-    void SetOrigin(const Vector3& origin);
-    const Vector3 GetOrigin() const;
-
-    // Ray direction
-    void SetDir(const Vector3& dir);
-    const Vector3 GetDir() const;
-
-    // Start of ray segment
-    void SetTNear(float tnear);
-    float GetTNear() const;
-
-    // End of ray segment (set to hit distance)
-    void SetTFar(float tfar);
-    float GetTFar() const;
-
-    BakeMesh* GetHitMesh();
-
-    Vector3 GetHitNormal();
-    Vector3 GetHitBaryCentric();
-
-    unsigned GetHitTriangle();
-
-    void Clear();
+    void SetupRay(const Vector3& origin, const Vector3& dir, float tNear = 0.001f, float tFar = 999999.0f);
 
     void ClearHit();
 
-    EmbreeRayPrivate* d_;
-
-    SampleSource sampleSrc_;
+    RTCRay rtcRay_;
+    SamplePoint samplePoint_;
 
 };
 

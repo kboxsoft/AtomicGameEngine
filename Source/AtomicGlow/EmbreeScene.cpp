@@ -19,12 +19,38 @@
 // THE SOFTWARE.
 //
 
-#include "EmbreePrivate.h"
+#include <xmmintrin.h>
+#include <pmmintrin.h>
+#include <cmath>
+#include <cfloat>
+
+#include "Embree.h"
 
 #include <Atomic/IO/Log.h>
 
 #include "BakeMesh.h"
 #include "EmbreeScene.h"
+
+// TODO: Configurable for fast/final bakes?
+
+/*
+enum RTCSceneFlags
+{
+  // dynamic type flags
+  RTC_SCENE_STATIC     = (0 << 0),    //!< specifies static scene
+  RTC_SCENE_DYNAMIC    = (1 << 0),    //!< specifies dynamic scene
+
+  // acceleration structure flags
+  RTC_SCENE_COMPACT    = (1 << 8),    //!< use memory conservative data structures
+  RTC_SCENE_COHERENT   = (1 << 9),    //!< optimize data structures for coherent rays
+  RTC_SCENE_INCOHERENT = (1 << 10),    //!< optimize data structures for in-coherent rays (enabled by default)
+  RTC_SCENE_HIGH_QUALITY = (1 << 11),  //!< create higher quality data structures
+
+  // traversal algorithm flags
+  RTC_SCENE_ROBUST     = (1 << 16)     //!< use more robust traversal algorithms
+};
+
+*/
 
 namespace AtomicGlow
 {
@@ -35,8 +61,7 @@ static void RTCErrorCallback(const RTCError code, const char* str)
 }
 
 
-EmbreeScenePrivate::EmbreeScenePrivate(EmbreeScene* embreeScene):
-    embreeScene_(embreeScene),
+EmbreeScene::EmbreeScene(Context* context) : Object(context),
     rtcDevice_(0),
     rtcScene_(0)
 {
@@ -53,76 +78,14 @@ EmbreeScenePrivate::EmbreeScenePrivate(EmbreeScene* embreeScene):
     rtcScene_ = rtcDeviceNewScene(rtcDevice_, RTC_SCENE_STATIC, RTC_INTERSECT1);
 }
 
+EmbreeScene::~EmbreeScene()
+{
+
+}
 
 void EmbreeScene::Commit()
 {
-    rtcCommit(d_->rtcScene_);
-}
-
-bool EmbreeScene::AddMeshMap(BakeMesh* meshMap)
-{
-    RTCScene rtcScene = d_->rtcScene_;
-
-    unsigned numTriangles;
-    unsigned numVertices;
-
-    const SharedArrayPtr<BakeMesh::MMTriangle> triangles = meshMap->GetTriangles(numTriangles);
-    const SharedArrayPtr<BakeMesh::MMVertex> vertices = meshMap->GetVertices(numVertices);
-
-    if (!numTriangles || !numVertices)
-        return false;
-
-    // Create the embree mesh
-    unsigned rtcGeomID = rtcNewTriangleMesh(rtcScene, RTC_GEOMETRY_STATIC, numTriangles, numVertices);
-    rtcSetUserData(rtcScene, rtcGeomID, meshMap);
-
-    //rtcSetOcclusionFilterFunction(scene, rtcGeomID, MyRTCFilterFunc);
-
-    // Populate vertices
-
-    float* vOut = (float*) rtcMapBuffer(rtcScene, rtcGeomID, RTC_VERTEX_BUFFER);
-
-    for (unsigned i = 0; i < numVertices; i++)
-    {
-        const BakeMesh::MMVertex& v = vertices[i];
-
-        *vOut++ = v.position_.x_;
-        *vOut++ = v.position_.y_;
-        *vOut++ = v.position_.z_;
-
-        // buffer is 16 byte aligned
-        vOut++;
-    }
-
-    rtcUnmapBuffer(rtcScene, rtcGeomID, RTC_VERTEX_BUFFER);
-
-    uint32_t* triOut = (uint32_t*) rtcMapBuffer(rtcScene, rtcGeomID, RTC_INDEX_BUFFER);
-
-    for (size_t i = 0; i < numTriangles; i++)
-    {
-        const BakeMesh::MMTriangle& tri = triangles[i];
-
-        *triOut++ = tri.indices_[0];
-        *triOut++ = tri.indices_[1];
-        *triOut++ = tri.indices_[2];
-    }
-
-    rtcUnmapBuffer(rtcScene, rtcGeomID, RTC_INDEX_BUFFER);
-
-    meshMapLookup_[rtcGeomID] = meshMap;
-
-    return true;
-
-}
-
-EmbreeScene::EmbreeScene(Context* context) : Object(context)
-{
-    d_ = new EmbreeScenePrivate(this);
-}
-
-EmbreeScene::~EmbreeScene()
-{
-    delete d_;
+    rtcCommit(rtcScene_);
 }
 
 }

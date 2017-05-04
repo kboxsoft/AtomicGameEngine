@@ -21,42 +21,6 @@
 
 #pragma once
 
-// Should be the only place embree headers are included
-# define EMBREE_PRIVATE
-
 #include <embree2/rtcore.h>
 #include <embree2/rtcore_ray.h>
 
-#include "EmbreeMath.h"
-
-namespace AtomicGlow
-{
-
-// various private embree stuff, so various classes can access them
-
-class LightRay;
-class EmbreeScene;
-
-class EmbreeRayPrivate
-{
-public:
-
-    friend class LightRay;
-    RTCRay ray_;
-};
-
-class EmbreeScenePrivate
-{
-
-public:
-
-    EmbreeScenePrivate(EmbreeScene* embreeScene);
-
-    EmbreeScene* embreeScene_;
-
-    RTCDevice rtcDevice_;
-    RTCScene rtcScene_;
-
-};
-
-}

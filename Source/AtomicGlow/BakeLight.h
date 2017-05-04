@@ -105,6 +105,8 @@ class BakeLightDirectional : public BakeLight
 
 protected:
 
+    Vector3 direction_;
+
     /*
     void Sample(SampleResult& result, const embree::DifferentialGeometry& dg, const embree::Vec2f &s);
 
