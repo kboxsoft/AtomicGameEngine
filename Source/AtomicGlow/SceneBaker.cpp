@@ -152,11 +152,13 @@ bool SceneBaker::LoadScene(const String& filename)
 
     // Zones
     PODVector<Node*> zoneNodes;
+    PODVector<Zone*> zones;
     scene_->GetChildrenWithComponent<Zone>(zoneNodes, true);
 
     for (unsigned i = 0; i < zoneNodes.Size(); i++)
     {
         Zone* zone = zoneNodes[i]->GetComponent<Zone>();
+        zones.Push(zone);;
         SharedPtr<ZoneBakeLight> zlight(new ZoneBakeLight(context_, this));
         zlight->SetZone(zone);
         bakeLights_.Push(zlight);
@@ -185,6 +187,23 @@ bool SceneBaker::LoadScene(const String& filename)
     for (unsigned i = 0; i < staticModels.Size(); i++)
     {
         StaticModel* staticModel = staticModels[i];
+
+        Vector3 center = staticModel->GetWorldBoundingBox().Center();
+        int bestPriority = M_MIN_INT;
+        Zone* newZone = 0;
+
+        for (PODVector<Zone*>::Iterator i = zones.Begin(); i != zones.End(); ++i)
+        {
+            Zone* zone = *i;
+            int priority = zone->GetPriority();
+            if (priority > bestPriority && (staticModel->GetZoneMask() & zone->GetZoneMask()) && zone->IsInside(center))
+            {
+                newZone = zone;
+                bestPriority = priority;
+            }
+        }
+
+        staticModel->SetZone(newZone, false);
 
         if (staticModel->GetModel() && (staticModel->GetLightmap() ||staticModel->GetCastShadows()))
         {

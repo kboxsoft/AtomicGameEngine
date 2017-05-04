@@ -112,7 +112,7 @@ class BakeMesh : public BakeNode
     // would like this to be runnable on own thread
     void Light();
 
-    void SetRadiance(int x, int y, const Vector3 &radiance);
+    void ContributeRadiance(int x, int y, const Vector3 &radiance);
 
     unsigned GetGeomID() const { return embreeGeomID_; }
 

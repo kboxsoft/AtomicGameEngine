@@ -32,6 +32,7 @@
 namespace AtomicGlow
 {
 
+const float LIGHT_ANGLE_EPSILON = 0.001f;
 
 BakeLight::BakeLight(Context* context, SceneBaker* sceneBaker) : BakeNode(context, sceneBaker)
 {
@@ -56,10 +57,11 @@ ZoneBakeLight::~ZoneBakeLight()
 void ZoneBakeLight::Light(LightRay* lightRay)
 {
     LightRay::SamplePoint& source = lightRay->samplePoint_;
-
     const Color& color = zone_->GetAmbientColor();
 
-    source.bakeMesh->SetRadiance(source.radianceX, source.radianceY, Vector3(color.r_, color.g_, color.b_));
+    // TODO: AO using ray packets/streams
+
+    source.bakeMesh->ContributeRadiance(source.radianceX, source.radianceY, Vector3(color.r_, color.g_, color.b_));
 }
 
 void ZoneBakeLight::SetZone(Zone* zone)
@@ -84,25 +86,35 @@ void DirectionalBakeLight::Light(LightRay* lightRay)
 {
     RTCScene scene = sceneBaker_->GetEmbreeScene()->GetRTCScene();
 
-    const float E = 0.001f;
-
     LightRay::SamplePoint& source = lightRay->samplePoint_;
     RTCRay& ray = lightRay->rtcRay_;
+
+    float angle = direction_.DotProduct(source.normal);
+
+    //if (angle < 0.0f)
+    //    return;
 
     lightRay->SetupRay(source.position, direction_);
 
     rtcOccluded(scene, ray);
 
-    if (ray.geomID == RTC_INVALID_GEOMETRY_ID)
-    {
-        source.bakeMesh->SetRadiance(source.radianceX, source.radianceY, Vector3(1, 1, 1));
-    }
+    // obstructed?  TODO: glass, etc
+    if (ray.geomID != RTC_INVALID_GEOMETRY_ID)
+        return;
+
+    Vector3 rad(color_.r_, color_.g_, color_.b_);
+
+    //rad*=angle;
+
+    source.bakeMesh->ContributeRadiance(source.radianceX, source.radianceY, rad);
 
 }
 
 void DirectionalBakeLight::SetLight(Atomic::Light* light)
 {
     node_ = light->GetNode();
+
+    color_ = light->GetColor();
 
     direction_ = -node_->GetWorldDirection();
     direction_.Normalize();

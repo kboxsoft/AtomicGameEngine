@@ -53,6 +53,8 @@ class BakeLight : public BakeNode
 
 protected:
 
+    Color color_;
+
 private:
 
 };

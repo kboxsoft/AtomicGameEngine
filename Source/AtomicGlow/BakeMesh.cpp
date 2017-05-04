@@ -22,6 +22,7 @@
 #include "EmbreeScene.h"
 
 #include <Atomic/IO/Log.h>
+#include <Atomic/Graphics/Zone.h>
 
 #include "Raster.h"
 #include "LightRay.h"
@@ -81,6 +82,14 @@ bool BakeMesh::FillLexelsCallback(void* param, int x, int y, const Vector3& bary
 bool BakeMesh::LightPixel(BakeMesh::ShaderData* shaderData, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage)
 {
 
+    const Vector3& rad = radiance_[y * radianceWidth_ + x];
+
+    // check whether we've already lit this pixel
+    if (rad.x_ >= 0.0f)
+    {
+        return true;
+    }
+
     MMTriangle* tri = &triangles_[shaderData->triangleIdx_];
     MMVertex* verts[3];
 
@@ -119,9 +128,19 @@ bool BakeMesh::LightPixel(BakeMesh::ShaderData* shaderData, int x, int y, const 
     return true;
 }
 
-void BakeMesh::SetRadiance(int x, int y, const Vector3& radiance)
+void BakeMesh::ContributeRadiance(int x, int y, const Vector3& radiance)
 {
-    radiance_[y * radianceWidth_ + x] = radiance;
+    const Vector3& v = radiance_[y * radianceWidth_ + x];
+
+    if (v.x_ < 0.0f)
+    {
+        radiance_[y * radianceWidth_ + x] = radiance;
+    }
+    else
+    {
+        radiance_[y * radianceWidth_ + x] += radiance;
+    }
+
 }
 
 
@@ -139,86 +158,28 @@ void BakeMesh::GenerateRadianceMap()
 
     image->SetSize(radianceWidth_, radianceHeight_, 3);
 
+    Color ambient = Color::BLACK;
+
+    if (staticModel_ && staticModel_->GetZone())
+    {
+        ambient = staticModel_->GetZone()->GetAmbientColor();
+    }
+
+    image->Clear(ambient);
+
     Color c;
     for (unsigned y = 0; y < radianceHeight_; y++)
     {
         for (unsigned x = 0; x < radianceWidth_; x++)
         {
-            const Vector3 rad = radiance_[y * radianceWidth_ + x];
+            const Vector3& rad = radiance_[y * radianceWidth_ + x];
 
-            if (rad.x_ < 0.0f)
+            if (rad.x_ >= 0.0f)
             {
-                // empty bit on the radiance map
-                c = Color::BLACK;
-            }
-            else
-            {
-                c.r_ = rad.x_;
-                c.g_ = rad.y_;
-                c.b_ = rad.z_;
-            }
-
-            image->SetPixel(x, y, c);
-
-        }
-
-    }
-
-    // Dilate the image by 2 pixels to allow bilinear texturing near seams.
-    // Note that this still allows seams when mipmapping, unless mipmap levels
-    // are generated very carefully.
-    for (int step = 0; step < 2; step++)
-    {
-        SharedArrayPtr<Color> tmp(new Color[image->GetWidth() * image->GetHeight()]);
-        memset (&tmp[0], 0, image->GetWidth() * image->GetHeight() * sizeof(Color));
-
-        for (int y = 0; y < image->GetHeight() ; y++)
-        {
-            for (int x = 0; x < image->GetWidth(); x++)
-            {
-                int center = x + y * image->GetWidth();
-
-                const Vector3& rad = radiance_[y * radianceWidth_ + x];
-                Color color = image->GetPixel(x, y);
-
-                tmp[center] = color;
-
-                if (rad.x_ < 0.0f && color == Color::BLACK)
-                {
-                    for (int k = 0; k < 9; k++)
-                    {
-                        int i = (k / 3) - 1, j = (k % 3) - 1;
-
-                        if (i == 0 && j == 0)
-                        {
-                            continue;
-                        }
-
-                        i += x;
-                        j += y;
-
-                        if (i < 0 || j < 0 || i >= radianceWidth_ || j >=  radianceHeight_ )
-                        {
-                            continue;
-                        }
-
-                        const Color& color2 = image->GetPixel(i, j);
-
-                        if (color2 != Color::BLACK)
-                        {
-                            tmp[center] = color2;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        for (int y = 0; y < image->GetHeight() ; y++)
-        {
-            for (int x = 0; x < image->GetWidth(); x++)
-            {
-                image->SetPixel(x, y, tmp[y * radianceWidth_ + x]);
+                c.r_ = Min<float>(rad.x_, 1.0f);
+                c.g_ = Min<float>(rad.y_, 1.0f);
+                c.b_ = Min<float>(rad.z_, 1.0f);
+                image->SetPixel(x, y, c);
             }
         }
     }
@@ -233,14 +194,12 @@ void BakeMesh::Light()
 
     // init radiance
     radiance_ = new Vector3[radianceWidth_ * radianceHeight_];
-    memset(&radiance_[0], 0, sizeof(Vector3) * radianceWidth_ * radianceHeight_);
 
     Vector3 v(-1, -1, -1);
     for (unsigned i = 0; i < radianceWidth_ * radianceHeight_; i++)
     {
         radiance_[i] = v;
     }
-
 
     Vector2 extents(radianceWidth_, radianceHeight_);
     Vector2 triUV1[3];
