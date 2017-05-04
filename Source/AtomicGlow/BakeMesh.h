@@ -36,6 +36,25 @@ using namespace Atomic;
 
 class SceneBaker;
 class BakeLight;
+class BakeMesh;
+
+class RadianceMap : public Object
+{
+    ATOMIC_OBJECT(RadianceMap, Object)
+
+    public:
+
+    RadianceMap(Context* context);
+    virtual ~RadianceMap();
+
+    int GetWidth() const { return image_.Null() ? 0 : image_->GetWidth(); }
+    int GetHeight() const { return image_.Null() ? 0 : image_->GetHeight(); }
+
+    SharedPtr<BakeMesh> bakeMesh_;
+    SharedPtr<Image> image_;
+    bool packed_;
+
+};
 
 class BakeMesh : public BakeNode
 {
@@ -97,6 +116,12 @@ class BakeMesh : public BakeNode
 
     unsigned GetGeomID() const { return embreeGeomID_; }
 
+    SharedPtr<RadianceMap> GetRadianceMap() const { return radianceMap_; }
+
+    StaticModel* GetStaticModel() const { return staticModel_; }
+
+    void Pack(unsigned lightmapIdx, Vector4 tilingOffset);
+
 private:
 
     struct ShaderData
@@ -109,8 +134,9 @@ private:
     static void OcclusionFilter(void* ptr, RTCRay& ray);
 
     bool LightPixel(ShaderData* shaderData, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage);
-
     bool LightSample(MMSample* sample);
+
+    void GenerateRadianceMap();
 
     // mesh geometry, in world space
 
@@ -130,7 +156,10 @@ private:
     // lights affecting this mesh
     PODVector<BakeLight*> bakeLights_;
 
+    SharedPtr<RadianceMap> radianceMap_;
+
     SharedArrayPtr<Vector3> radiance_;
+
     unsigned radianceHeight_;
     unsigned radianceWidth_;
 

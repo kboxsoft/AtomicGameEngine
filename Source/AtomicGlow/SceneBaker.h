@@ -48,6 +48,8 @@ class SceneBaker : public Object
 
     bool LoadScene(const String& filename);
 
+    bool GenerateLightmaps();
+
     void QueryLights(const BoundingBox& bbox, PODVector<BakeLight*>& lights);
 
     void TraceRay(LightRay* lightRay, const PODVector<AtomicGlow::BakeLight *>& bakeLights_);

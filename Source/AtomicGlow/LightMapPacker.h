@@ -1,5 +1,4 @@
 // Copyright (c) 2014-2017, THUNDERBEAST GAMES LLC All rights reserved
-// Copyright 2009-2017 Intel Corporation
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -20,64 +19,53 @@
 // THE SOFTWARE.
 //
 
-#include "EmbreeScene.h"
+#pragma once
 
-#include "LightRay.h"
-#include "BakeLight.h"
+#include <Atomic/Core/Object.h>
+
 #include "BakeMesh.h"
-#include "SceneBaker.h"
+#include "LightMap.h"
+
+namespace Atomic
+{
+
+class Image;
+
+}
 
 namespace AtomicGlow
 {
 
+using namespace Atomic;
 
-BakeLight::BakeLight(Context* context, SceneBaker* sceneBaker) : BakeNode(context, sceneBaker)
+class LightMapPacker : public Object
 {
-}
+    ATOMIC_OBJECT(LightMapPacker, Object)
 
-BakeLight::~BakeLight()
-{
+    public:
 
-}
+    LightMapPacker(Context* context);
+    virtual ~LightMapPacker();
 
-// Directional Lights
+    void AddRadianceMap(RadianceMap* radianceMap);
 
-BakeLightDirectional::BakeLightDirectional(Context* context, SceneBaker* sceneBaker) : BakeLight(context, sceneBaker)
-{
-}
+    void Pack();
 
-BakeLightDirectional::~BakeLightDirectional()
-{
+    void SaveLightmaps();
 
-}
+private:
 
-void BakeLightDirectional::Light(LightRay* lightRay)
-{
-    RTCScene scene = sceneBaker_->GetEmbreeScene()->GetRTCScene();
+    /// Attempts to add a radiance map to current working set
+    bool TryAddRadianceMap(RadianceMap* radMap);
+    void EmitLightmap(unsigned lightMapID);
 
-    const float E = 0.001f;
+    Vector<SharedPtr<RadianceMap>> radMaps_;
+    Vector<SharedPtr<LightMap>> lightMaps_;
 
-    LightRay::SamplePoint& source = lightRay->samplePoint_;
-    RTCRay& ray = lightRay->rtcRay_;
 
-    lightRay->SetupRay(source.position, direction_);
+    PODVector<RadianceMap*> workingSet_;
 
-    rtcOccluded(scene, ray);
+};
 
-    if (ray.geomID == RTC_INVALID_GEOMETRY_ID)
-    {
-        source.bakeMesh->SetRadiance(source.radianceX, source.radianceY, Vector3(1, 1, 1));
-    }
-
-}
-
-void BakeLightDirectional::SetLight(Atomic::Light* light)
-{
-    node_ = light->GetNode();
-
-    direction_ = -node_->GetWorldDirection();
-    direction_.Normalize();
-
-}
 
 }

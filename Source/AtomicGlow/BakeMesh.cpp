@@ -31,6 +31,17 @@
 namespace AtomicGlow
 {
 
+RadianceMap::RadianceMap(Context* context) : Object(context),
+    packed_(false)
+{
+
+}
+
+RadianceMap::~RadianceMap()
+{
+
+}
+
 BakeMesh::BakeMesh(Context* context, SceneBaker *sceneBaker) : BakeNode(context, sceneBaker),
     numVertices_(0),
     numTriangles_(0),
@@ -43,6 +54,21 @@ BakeMesh::BakeMesh(Context* context, SceneBaker *sceneBaker) : BakeNode(context,
 
 BakeMesh::~BakeMesh()
 {
+
+}
+
+void BakeMesh::Pack(unsigned lightmapIdx, Vector4 tilingOffset)
+{
+    if (radianceMap_.NotNull())
+    {
+        radianceMap_->packed_ = true;
+    }
+
+    if (staticModel_)
+    {
+        staticModel_->SetLightmapIndex(lightmapIdx);
+        staticModel_->SetLightmapTilingOffset(tilingOffset);
+    }
 
 }
 
@@ -89,7 +115,7 @@ bool BakeMesh::LightPixel(BakeMesh::ShaderData* shaderData, int x, int y, const 
                   verts[2]->uv1_ * barycentric.z_;
 
     // hack ambient
-    const Vector3 ambient(.2f, .2f, .2f);
+    const Vector3 ambient(.6f, .6f, .6f);
     SetRadiance(x, y, ambient);
 
     sceneBaker_->TraceRay(&ray, bakeLights_);
@@ -103,12 +129,122 @@ void BakeMesh::SetRadiance(int x, int y, const Vector3& radiance)
 }
 
 
+void BakeMesh::GenerateRadianceMap()
+{
+    if (radianceMap_.NotNull())
+        return;
+
+    radianceMap_ = new RadianceMap(context_);
+
+    SharedPtr<Image> image (new Image(context_));
+
+    radianceMap_->bakeMesh_ = SharedPtr<BakeMesh>(this);
+    radianceMap_->image_ = image;
+
+    image->SetSize(radianceWidth_, radianceHeight_, 3);
+
+    Color c;
+    for (unsigned y = 0; y < radianceHeight_; y++)
+    {
+        for (unsigned x = 0; x < radianceWidth_; x++)
+        {
+            const Vector3 rad = radiance_[y * radianceWidth_ + x];
+
+            if (rad.x_ < 0.0f)
+            {
+                // empty bit on the radiance map
+                c = Color::BLACK;
+            }
+            else
+            {
+                c.r_ = rad.x_;
+                c.g_ = rad.y_;
+                c.b_ = rad.z_;
+            }
+
+            image->SetPixel(x, y, c);
+
+        }
+
+    }
+
+    // Dilate the image by 2 pixels to allow bilinear texturing near seams.
+    // Note that this still allows seams when mipmapping, unless mipmap levels
+    // are generated very carefully.
+    for (int step = 0; step < 2; step++)
+    {
+        SharedArrayPtr<Color> tmp(new Color[image->GetWidth() * image->GetHeight()]);
+        memset (&tmp[0], 0, image->GetWidth() * image->GetHeight() * sizeof(Color));
+
+        for (int y = 0; y < image->GetHeight() ; y++)
+        {
+            for (int x = 0; x < image->GetWidth(); x++)
+            {
+                int center = x + y * image->GetWidth();
+
+                const Vector3& rad = radiance_[y * radianceWidth_ + x];
+                Color color = image->GetPixel(x, y);
+
+                tmp[center] = color;
+
+                if (rad.x_ < 0.0f && color == Color::BLACK)
+                {
+                    for (int k = 0; k < 9; k++)
+                    {
+                        int i = (k / 3) - 1, j = (k % 3) - 1;
+
+                        if (i == 0 && j == 0)
+                        {
+                            continue;
+                        }
+
+                        i += x;
+                        j += y;
+
+                        if (i < 0 || j < 0 || i >= radianceWidth_ || j >=  radianceHeight_ )
+                        {
+                            continue;
+                        }
+
+                        const Color& color2 = image->GetPixel(i, j);
+
+                        if (color2 != Color::BLACK)
+                        {
+                            tmp[center] = color2;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        for (int y = 0; y < image->GetHeight() ; y++)
+        {
+            for (int x = 0; x < image->GetWidth(); x++)
+            {
+                image->SetPixel(x, y, tmp[y * radianceWidth_ + x]);
+            }
+        }
+    }
+}
+
 void BakeMesh::Light()
 {
     if (!GetLightmap() || !radianceWidth_ || !radianceHeight_)
         return;
 
     // for all triangles
+
+    // init radiance
+    radiance_ = new Vector3[radianceWidth_ * radianceHeight_];
+    memset(&radiance_[0], 0, sizeof(Vector3) * radianceWidth_ * radianceHeight_);
+
+    Vector3 v(-1, -1, -1);
+    for (unsigned i = 0; i < radianceWidth_ * radianceHeight_; i++)
+    {
+        radiance_[i] = v;
+    }
+
 
     Vector2 extents(radianceWidth_, radianceHeight_);
     Vector2 triUV1[3];
@@ -133,31 +269,7 @@ void BakeMesh::Light()
 
     }
 
-    static int id = 0;
-
-    SharedPtr<Image> lightmap(new Image(context_));
-    lightmap->SetSize(radianceWidth_, radianceHeight_, 3);
-
-    Color c;
-    for (unsigned y = 0; y < radianceHeight_; y++)
-    {
-        for (unsigned x = 0; x < radianceWidth_; x++)
-        {
-            const Vector3 rad = radiance_[y * radianceWidth_ + x];
-
-            c.r_ = rad.x_;
-            c.g_ = rad.y_;
-            c.b_ = rad.z_;
-
-            lightmap->SetPixel(x, y, c);
-
-        }
-
-    }
-
-    lightmap->SavePNG(ToString("/Users/jenge/Desktop/lightmap%i.png", id++));
-
-
+    GenerateRadianceMap();
 
 }
 
@@ -209,8 +321,6 @@ void BakeMesh::Preprocess()
 
     sceneBaker_->QueryLights(boundingBox_, bakeLights_);
 
-    radiance_ = new Vector3[radianceWidth_ * radianceHeight_];
-    memset(&radiance_[0], 0, sizeof(Vector3) * radianceWidth_ * radianceHeight_);
 }
 
 

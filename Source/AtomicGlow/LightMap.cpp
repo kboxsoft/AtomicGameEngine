@@ -26,14 +26,22 @@
 namespace AtomicGlow
 {
 
-LightMap::LightMap(Context* context) : Object(context)
+LightMap::LightMap(Context* context, int width, int height) : Object(context),
+  id_(0)
 {
-
+    image_ = new Image(context_);
+    image_->SetSize(width, height, 3);
+    image_->Clear(Color::BLACK);
 }
 
 LightMap::~LightMap()
 {
 
+}
+
+void LightMap::Filter()
+{
+    BoxFilterImage();
 }
 
 void LightMap::BoxFilterImage()

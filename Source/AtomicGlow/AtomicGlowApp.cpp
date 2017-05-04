@@ -128,11 +128,7 @@ namespace AtomicGlow
         baker->LoadScene("Scenes/Scene.scene");
         baker->Preprocess();
         baker->Light();
-
-        /*
-        SharedPtr<ModelAOBake> baker(new ModelAOBake(context_));
-        baker->LoadModel("3a355752e1e005ca5c1347340669eaa7.mdl");
-        */
+        baker->GenerateLightmaps();
 
         exitCode_ = EXIT_SUCCESS;
         engine_->Exit();

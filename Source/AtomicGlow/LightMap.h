@@ -45,13 +45,22 @@ class LightMap : public Object
 
     public:
 
-    LightMap(Context* context);
+    LightMap(Context* context, int width = LIGHTMAP_WIDTH, int height = LIGHTMAP_HEIGHT);
     virtual ~LightMap();
+
+    unsigned GetID() const { return id_; }
+    void SetID(unsigned id) { id_ = id; }
+
+    Image* GetImage() const { return image_; }
+    void SetImage(Image* image) { image_ = image; }
+
+    void Filter();
 
 private:
 
     void BoxFilterImage();
 
+    unsigned id_;
 
     SharedPtr<Image> image_;
 
