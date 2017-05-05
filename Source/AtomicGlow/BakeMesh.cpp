@@ -67,6 +67,7 @@ void BakeMesh::Pack(unsigned lightmapIdx, Vector4 tilingOffset)
 
     if (staticModel_)
     {
+        staticModel_->SetLightMask(0);
         staticModel_->SetLightmapIndex(lightmapIdx);
         staticModel_->SetLightmapTilingOffset(tilingOffset);
     }
@@ -168,9 +169,9 @@ void BakeMesh::GenerateRadianceMap()
 
             if (rad.x_ >= 0.0f)
             {
-                c.r_ = Min<float>(rad.x_, 1.0f);
-                c.g_ = Min<float>(rad.y_, 1.0f);
-                c.b_ = Min<float>(rad.z_, 1.0f);
+                c.r_ = rad.x_; //Min<float>(rad.x_, 1.0f);
+                c.g_ = rad.y_;// Min<float>(rad.y_, 1.0f);
+                c.b_ = rad.z_;// Min<float>(rad.z_, 1.0f);
                 image->SetPixel(x, y, c);
             }
         }
@@ -344,9 +345,46 @@ void BakeMesh::Preprocess()
 
     rtcUnmapBuffer(scene, embreeGeomID_, RTC_INDEX_BUFFER);
 
+    float lmScale = staticModel_->GetLightmapScale();
+
     // if we aren't lightmapped, we just contribute to occlusion
-    if (!GetLightmap())
+    if (!GetLightmap() || lmScale <= 0.0f)
         return;
+
+    // TODO: global light scale for quick bakes and super sampling mode
+    unsigned lmSize = staticModel_->GetLightmapSize();
+
+    if (!lmSize)
+    {
+        // TODO: calculate surface area instead of using this rough metric
+        Vector3 size = staticModel_->GetModel()->GetBoundingBox().Size();
+        size *= node_->GetWorldScale();
+
+        float sz = 1.0f - (Min<float>(size.Length(), 32.0f)/32.0f);
+
+        sz += sz * 0.5f;
+
+        float lexelScale = 16.0f + sz * 64.0f;
+
+        lmSize = size.x_ * lexelScale * lmScale;
+        lmSize += size.y_ * lexelScale * lmScale;
+        lmSize += size.z_ * lexelScale * lmScale;
+
+        if (lmSize > 512 && !IsPowerOfTwo(lmSize))
+        {
+            lmSize = NextPowerOfTwo(lmSize)/2;
+        }
+
+    }
+
+    if (lmSize < 128)
+        lmSize = 128;
+
+    if (lmSize > 4096)
+        lmSize = 4096;
+
+    radianceWidth_ = lmSize;
+    radianceHeight_ = lmSize;
 
     sceneBaker_->QueryLights(boundingBox_, bakeLights_);
 
@@ -391,15 +429,6 @@ bool BakeMesh::SetStaticModel(StaticModel* staticModel)
         ATOMIC_LOGERROR("BakeMesh::Preprocess() - Geometry mismatch");
         return false;
     }
-
-    // TODO: calculate
-    unsigned lmSize = staticModel_->GetLightmapSize() ? staticModel_->GetLightmapSize() : 256;
-
-    if (lmSize > 4096)
-        lmSize = 4096;
-
-    radianceWidth_ = lmSize;
-    radianceHeight_ = lmSize;
 
     for (unsigned i = 0; i < staticModel_->GetNumGeometries(); i++)
     {
