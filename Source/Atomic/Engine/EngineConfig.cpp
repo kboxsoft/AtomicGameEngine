@@ -90,6 +90,8 @@ bool EngineConfig::LoadGraphicsConfig(const JSONValue& jgraphics)
                 valueMap_["RenderPath"] = "RenderPaths/Prepass.xml";
             else if (renderPath == "deferred")
                 valueMap_["RenderPath"] = "RenderPaths/Deferred.xml";
+			else if (renderPath == "pbr")
+				valueMap_["RenderPath"] = "RenderPaths/PBRDeferredHWDepth.xml";
         }
         else if (key == "shadows")
             valueMap_["Shadows"] = GetBoolValue(jvalue, true);

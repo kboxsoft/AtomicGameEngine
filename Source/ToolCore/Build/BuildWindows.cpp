@@ -161,13 +161,18 @@ void BuildWindows::BuildNative(const String& buildPath)
 
     String playerBinary = tenv->GetPlayerBinary();
 
-    String d3d9dll = GetPath(playerBinary) + "/D3DCompiler_47.dll";
 
     if (!BuildCopyFile(playerBinary, buildPath_ + "/AtomicPlayer.exe"))
         return;
 
-    if (!BuildCopyFile(d3d9dll, buildPath_ + "/D3DCompiler_47.dll"))
-        return;
+	#ifndef ATOMIC_OPENGL
+		String d3d9dll = GetPath(playerBinary) + "/D3DCompiler_47.dll";
+		if (!BuildCopyFile(d3d9dll, buildPath_ + "/D3DCompiler_47.dll"))
+			return;
+	#endif // ATOMIC_OPENGL
+
+
+
 
 }
 
