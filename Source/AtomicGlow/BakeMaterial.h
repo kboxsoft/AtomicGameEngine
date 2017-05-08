@@ -44,6 +44,8 @@ class BakeMaterial : public Object
 
     Image* GetDiffuseTexture() const { return diffuseTexture_; }
 
+    bool GetOcclusionMasked() const { return occlusionMasked_; }
+
     const Vector4& GetUOffset() const { return uoffset_; }
     const Vector4& GetVOffset() const { return voffset_; }
 
@@ -57,6 +59,8 @@ private:
     // as we don't load material in headless graphics mode
 
     SharedPtr<Image> diffuseTexture_;
+
+    bool occlusionMasked_;
 
     Vector4 uoffset_;
     Vector4 voffset_;

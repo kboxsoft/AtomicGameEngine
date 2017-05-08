@@ -64,7 +64,8 @@ BakeMaterial* BakeMaterialCache::GetBakeMaterial(Material *material)
 
 }
 
-BakeMaterial::BakeMaterial(Context* context) : Object(context)
+BakeMaterial::BakeMaterial(Context* context) : Object(context),
+    occlusionMasked_(false)
 {
     uoffset_ = Vector4(1.0f, 0.0f, 0.0f, 0.0f);
     voffset_ = Vector4(0.0f, 1.0f, 0.0f, 0.0f);
@@ -98,6 +99,21 @@ bool BakeMaterial::LoadMaterial(Material *material)
         return false;
 
     XMLElement rootElem = xmlFile->GetRoot();
+
+    XMLElement techniqueElem = rootElem.GetChild("technique");
+
+    if (techniqueElem)
+    {
+        String name = techniqueElem.GetAttribute("name").ToLower();
+
+        // TODO: better way of setting/detecting occlusion masked materials
+        if (name.Contains("diffalpha") || name.Contains("difflightmapalpha"))
+        {
+            occlusionMasked_ = true;
+        }
+    }
+
+    // techniques
 
     // textures
     XMLElement textureElem = rootElem.GetChild("texture");

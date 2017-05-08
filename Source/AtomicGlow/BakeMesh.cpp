@@ -651,6 +651,9 @@ void BakeMesh::OcclusionFilter(void* ptr, RTCRay& ray)
 
     BakeMaterial* material = bakeMesh->bakeMaterials_[tri->materialIndex_];
 
+    if (!material->GetOcclusionMasked())
+        return;
+
     Image* diffuse = material->GetDiffuseTexture();
 
     if (!diffuse)
