@@ -202,7 +202,9 @@ void PS()
             finalColor += cMatEnvMapColor * textureCube(sEnvCubeMap, reflect(vReflectionVec, normal)).rgb;
         #endif
         #ifdef LIGHTMAP
-            finalColor += texture2D(sEmissiveMap, vTexCoord2).rgb * diffColor.rgb;
+            // ATOMIC BEGIN
+            finalColor += texture2D(sEmissiveMap, vTexCoord2).rgb * vec3(3, 3, 3) * diffColor.rgb;
+            // ATOMIC END
         #endif
         #ifdef EMISSIVEMAP
             finalColor += cMatEmissiveColor * texture2D(sEmissiveMap, vTexCoord.xy).rgb;
@@ -235,7 +237,9 @@ void PS()
             finalColor += cMatEnvMapColor * textureCube(sEnvCubeMap, reflect(vReflectionVec, normal)).rgb;
         #endif
         #ifdef LIGHTMAP
-            finalColor += texture2D(sEmissiveMap, vTexCoord2).rgb * diffColor.rgb;
+            // ATOMIC BEGIN
+            finalColor += texture2D(sEmissiveMap, vTexCoord2).rgb * vec3(3, 3, 3) * diffColor.rgb;
+            // ATOMIC END
         #endif
         #ifdef EMISSIVEMAP
             finalColor += cMatEmissiveColor * texture2D(sEmissiveMap, vTexCoord.xy).rgb;

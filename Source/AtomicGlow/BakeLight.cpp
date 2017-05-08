@@ -34,7 +34,8 @@ namespace AtomicGlow
 
 const float LIGHT_ANGLE_EPSILON = 0.001f;
 
-BakeLight::BakeLight(Context* context, SceneBaker* sceneBaker) : BakeNode(context, sceneBaker)
+BakeLight::BakeLight(Context* context, SceneBaker* sceneBaker) : BakeNode(context, sceneBaker),
+    range_(0.0f)
 {
 }
 
@@ -120,5 +121,66 @@ void DirectionalBakeLight::SetLight(Atomic::Light* light)
     direction_.Normalize();
 
 }
+// Point Lights
+
+PointBakeLight::PointBakeLight(Context* context, SceneBaker* sceneBaker) : BakeLight(context, sceneBaker)
+{
+}
+
+PointBakeLight::~PointBakeLight()
+{
+
+}
+
+void PointBakeLight::Light(LightRay* lightRay)
+{
+    RTCScene scene = sceneBaker_->GetEmbreeScene()->GetRTCScene();
+
+    LightRay::SamplePoint& source = lightRay->samplePoint_;
+    RTCRay& ray = lightRay->rtcRay_;
+
+    Vector3 dir = position_ - source.position;
+
+    float dist = dir.Length();
+
+    if (range_ <= 0.0f || dist >= range_)
+        return;
+
+    dir.Normalize();
+
+    float dot = dir.DotProduct(source.normal);
+
+    if (dot < 0.0f)
+        return;
+
+    lightRay->SetupRay(source.position, dir, .001f, dist);
+
+    rtcOccluded(scene, ray);
+
+    // obstructed?  TODO: glass, etc
+    if (ray.geomID != RTC_INVALID_GEOMETRY_ID)
+        return;
+
+    Vector3 rad(color_.r_, color_.g_, color_.b_);
+
+    rad *= Max<float> (1.0f - ( dist * 1.2 / range_), 0.0f);
+    rad *= dot;
+
+    if (rad.Length() > M_EPSILON)
+        source.bakeMesh->ContributeRadiance(source.radianceX, source.radianceY, rad);
+
+}
+
+void PointBakeLight::SetLight(Atomic::Light* light)
+{
+    node_ = light->GetNode();
+
+    color_ = light->GetColor();
+    position_ = node_->GetWorldPosition();
+
+    range_ = light->GetRange();
+
+}
+
 
 }

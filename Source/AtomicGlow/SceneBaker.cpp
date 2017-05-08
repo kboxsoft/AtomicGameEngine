@@ -26,6 +26,7 @@
 
 #include <ThirdParty/STB/stb_rect_pack.h>
 
+#include <Atomic/Core/WorkQueue.h>
 #include <Atomic/IO/Log.h>
 #include <Atomic/Resource/ResourceCache.h>
 #include <Atomic/Graphics/Zone.h>
@@ -76,7 +77,7 @@ bool SceneBaker::GenerateLightmaps()
 #ifdef ATOMIC_PLATFORM_WINDOWS
     String scenefilename = ToString("C:/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Scenes/LitScene.scene");
 #else
-    String scenefilename = ToString("/Users/jenge/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Scenes/LitScene.scene");
+    String scenefilename = ToString("/Users/jenge/Dev/TestScene/output/Resources/Scenes/LitScene.scene");
 #endif
 
     File saveFile(context_, scenefilename, FILE_WRITE);
@@ -99,6 +100,8 @@ bool SceneBaker::Light()
         BakeMesh* mesh = bakeMeshes_[i];
         mesh->Light();
     }
+
+    GetSubsystem<WorkQueue>()->Complete(0);
 
     return true;
 }
@@ -156,8 +159,12 @@ bool SceneBaker::LoadScene(const String& filename)
     scene_->GetChildrenWithComponent<Zone>(zoneNodes, true);
 
     for (unsigned i = 0; i < zoneNodes.Size(); i++)
-    {
+    {        
         Zone* zone = zoneNodes[i]->GetComponent<Zone>();
+
+        if (!zone->GetNode()->IsEnabled() || !zone->IsEnabled())
+            continue;
+
         zones.Push(zone);;
         SharedPtr<ZoneBakeLight> zlight(new ZoneBakeLight(context_, this));
         zlight->SetZone(zone);
@@ -172,12 +179,22 @@ bool SceneBaker::LoadScene(const String& filename)
     {
         Atomic::Light* light = lightNodes[i]->GetComponent<Atomic::Light>();
 
+        if (!light->GetNode()->IsEnabled()|| !light->IsEnabled())
+            continue;
+
         if (light->GetLightType() == LIGHT_DIRECTIONAL)
         {
             SharedPtr<DirectionalBakeLight> dlight(new DirectionalBakeLight(context_, this));
             dlight->SetLight(light);
             bakeLights_.Push(dlight);
         }
+        else if (light->GetLightType() == LIGHT_POINT)
+        {
+            SharedPtr<PointBakeLight> dlight(new PointBakeLight(context_, this));
+            dlight->SetLight(light);
+            bakeLights_.Push(dlight);
+        }
+
     }
 
     // Static Models
@@ -187,6 +204,9 @@ bool SceneBaker::LoadScene(const String& filename)
     for (unsigned i = 0; i < staticModels.Size(); i++)
     {
         StaticModel* staticModel = staticModels[i];
+
+        if (!staticModel->GetNode()->IsEnabled() || !staticModel->IsEnabled())
+            continue;
 
         Vector3 center = staticModel->GetWorldBoundingBox().Center();
         int bestPriority = M_MIN_INT;

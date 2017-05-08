@@ -23,6 +23,8 @@
 
 #include "Embree.h"
 
+#include <Atomic/Core/Thread.h>
+#include <Atomic/Core/Mutex.h>
 #include <Atomic/Graphics/StaticModel.h>
 
 #include "BakeMaterial.h"
@@ -133,6 +135,9 @@ private:
     static bool FillLexelsCallback(void* param, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage);
     static void OcclusionFilter(void* ptr, RTCRay& ray);
 
+    static void LightTrianglesWork(const WorkItem* item, unsigned threadIndex);
+    void HandleLightTrianglesWorkCompleted(StringHash eventType, VariantMap& eventData);
+
     bool LightPixel(ShaderData* shaderData, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage);
     bool LightSample(MMSample* sample);
 
@@ -158,12 +163,18 @@ private:
 
     SharedPtr<RadianceMap> radianceMap_;
 
+    // can be accessed from multiple threads
     SharedArrayPtr<Vector3> radiance_;
 
     unsigned radianceHeight_;
     unsigned radianceWidth_;
 
     unsigned embreeGeomID_;
+
+    // multithreading
+
+    Mutex meshMutex_;    
+    unsigned numWorkItems_;
 
 };
 

@@ -53,7 +53,13 @@ class BakeLight : public BakeNode
 
 protected:
 
+    // Common light properties
     Color color_;
+    Vector3 position_;
+    Vector3 direction_;
+
+    float range_;
+
 
 private:
 
@@ -101,11 +107,30 @@ class DirectionalBakeLight : public BakeLight
 
 protected:
 
-    Vector3 direction_;
+
+private:
+
+};
+
+class PointBakeLight : public BakeLight
+{
+    ATOMIC_OBJECT(PointBakeLight, BakeLight)
+
+    public:
+
+    PointBakeLight(Context* context, SceneBaker* sceneBaker);
+    virtual ~PointBakeLight();
+
+    void Light(LightRay* lightRay);
+
+    void SetLight(Atomic::Light* light);
+
+protected:
 
 
 private:
 
 };
+
 
 }

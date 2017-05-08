@@ -36,8 +36,8 @@ namespace AtomicGlow
 using namespace Atomic;
 
 // fixme: this needs to be configurable
-const int LIGHTMAP_WIDTH = 1024;
-const int LIGHTMAP_HEIGHT = 1024;
+const int LIGHTMAP_WIDTH = 2048;
+const int LIGHTMAP_HEIGHT = 2048;
 
 class LightMap : public Object
 {

@@ -21,6 +21,7 @@
 
 #include "EmbreeScene.h"
 
+#include <Atomic/Core/WorkQueue.h>
 #include <Atomic/IO/Log.h>
 #include <Atomic/Graphics/Zone.h>
 
@@ -48,7 +49,8 @@ BakeMesh::BakeMesh(Context* context, SceneBaker *sceneBaker) : BakeNode(context,
     numTriangles_(0),
     radianceHeight_(0),
     radianceWidth_(0),
-    embreeGeomID_(RTC_INVALID_GEOMETRY_ID)
+    embreeGeomID_(RTC_INVALID_GEOMETRY_ID),
+    numWorkItems_(0)
 {
 
 }
@@ -83,7 +85,9 @@ bool BakeMesh::FillLexelsCallback(void* param, int x, int y, const Vector3& bary
 bool BakeMesh::LightPixel(BakeMesh::ShaderData* shaderData, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage)
 {
 
+    meshMutex_.Acquire();
     const Vector3& rad = radiance_[y * radianceWidth_ + x];
+    meshMutex_.Release();
 
     // check whether we've already lit this pixel
     if (rad.x_ >= 0.0f)
@@ -131,6 +135,8 @@ bool BakeMesh::LightPixel(BakeMesh::ShaderData* shaderData, int x, int y, const 
 
 void BakeMesh::ContributeRadiance(int x, int y, const Vector3& radiance)
 {
+    MutexLock lock(meshMutex_);
+
     const Vector3& v = radiance_[y * radianceWidth_ + x];
 
     if (v.x_ < 0.0f)
@@ -169,9 +175,17 @@ void BakeMesh::GenerateRadianceMap()
 
             if (rad.x_ >= 0.0f)
             {
-                c.r_ = rad.x_; //Min<float>(rad.x_, 1.0f);
-                c.g_ = rad.y_;// Min<float>(rad.y_, 1.0f);
-                c.b_ = rad.z_;// Min<float>(rad.z_, 1.0f);
+                Vector3 r = rad;
+
+                if (r.Length() > 3.0f)
+                {
+                    r.Normalize();
+                    r *= 3.0f;
+                }
+
+                c.r_ = r.x_; //Min<float>(rad.x_, 1.0f);
+                c.g_ = r.y_;// Min<float>(rad.y_, 1.0f);
+                c.b_ = r.z_;// Min<float>(rad.z_, 1.0f);
                 image->SetPixel(x, y, c);
             }
         }
@@ -260,9 +274,54 @@ void BakeMesh::GenerateRadianceMap()
 
 }
 
+void BakeMesh::LightTrianglesWork(const WorkItem* item, unsigned threadIndex)
+{
+    ShaderData shaderData;
+    Vector2 triUV1[3];
+
+    BakeMesh* bakeMesh = shaderData.bakeMesh_ = (BakeMesh*) item->aux_;
+
+    Vector2 extents(bakeMesh->radianceWidth_, bakeMesh->radianceHeight_);
+
+    MMTriangle* start = reinterpret_cast<MMTriangle*>(item->start_);
+    MMTriangle* end = reinterpret_cast<MMTriangle*>(item->end_);
+
+    while (start <= end)
+    {
+        MMTriangle* tri = start;
+
+        shaderData.triangleIdx_ = tri - &bakeMesh->triangles_[0];
+
+        start++;
+
+        for (unsigned j = 0; j < 3; j++)
+        {
+            unsigned idx = tri->indices_[j];
+            triUV1[j] = bakeMesh->vertices_[idx].uv1_;
+            triUV1[j].x_ *= float(bakeMesh->radianceWidth_);
+            triUV1[j].y_ *= float(bakeMesh->radianceHeight_);
+        }
+
+        Raster::DrawTriangle(true, extents, true, triUV1, FillLexelsCallback, &shaderData );
+
+    }
+
+}
+
+void BakeMesh::HandleLightTrianglesWorkCompleted(StringHash eventType, VariantMap& eventData)
+{
+    numWorkItems_--;
+
+    if (!numWorkItems_)
+    {
+        // Done
+        GenerateRadianceMap();
+    }
+}
+
 void BakeMesh::Light()
 {
-    if (!GetLightmap() || !radianceWidth_ || !radianceHeight_)
+    if (!GetLightmap() || !radianceWidth_ || !radianceHeight_ || !numTriangles_)
         return;
 
     // for all triangles
@@ -276,6 +335,50 @@ void BakeMesh::Light()
         radiance_[i] = v;
     }
 
+    WorkQueue* queue = GetSubsystem<WorkQueue>();
+
+    unsigned numTrianglePerItem = numTriangles_ / 4 ? numTriangles_ / 4 : numTriangles_;
+
+    unsigned curIdx = 0;
+    numWorkItems_ = 0;
+
+    while (true)
+    {
+        SharedPtr<WorkItem> item = queue->GetFreeItem();
+        item->priority_ = M_MAX_UNSIGNED;
+        item->workFunction_ = LightTrianglesWork;
+        item->aux_ = this;
+
+        item->start_ = &triangles_[curIdx];
+
+        unsigned endIdx = curIdx + numTrianglePerItem;
+
+        if (endIdx < numTriangles_)
+        {
+            item->end_ = &triangles_[endIdx];
+        }
+        else
+        {
+            item->end_ = &triangles_[numTriangles_ - 1];
+        }
+
+        item->sendEvent_ = true;
+
+        SubscribeToEvent(E_WORKITEMCOMPLETED, ATOMIC_HANDLER(BakeMesh, HandleLightTrianglesWorkCompleted));
+
+        queue->AddWorkItem(item);
+
+        numWorkItems_++;
+
+        if (item->end_ == &triangles_[numTriangles_ - 1])
+            break;
+
+        curIdx += numTrianglePerItem;
+    }
+
+
+
+    /*
     Vector2 extents(radianceWidth_, radianceHeight_);
     Vector2 triUV1[3];
 
@@ -300,6 +403,27 @@ void BakeMesh::Light()
     }
 
     GenerateRadianceMap();
+    */
+
+}
+
+static unsigned CalcLightMapSize(unsigned sz)
+{
+    // highest multiple of 16
+    sz = (sz + 16) & ~15;
+
+    if (sz > 512 && !IsPowerOfTwo(sz))
+    {
+        sz = NextPowerOfTwo(sz)/2;
+    }
+
+    if (sz < 32)
+        sz = 32;
+
+    if (sz > 4096)
+        sz = 4096;
+
+    return sz;
 
 }
 
@@ -308,42 +432,45 @@ void BakeMesh::Preprocess()
 
     RTCScene scene = sceneBaker_->GetEmbreeScene()->GetRTCScene();
 
-    // Create the embree mesh
-    embreeGeomID_ = rtcNewTriangleMesh(scene, RTC_GEOMETRY_STATIC, numTriangles_, numVertices_);
-    rtcSetUserData(scene, embreeGeomID_, this);
-    rtcSetOcclusionFilterFunction(scene, embreeGeomID_, OcclusionFilter);
-
-    // Populate vertices
-
-    float* vertices = (float*) rtcMapBuffer(scene, embreeGeomID_, RTC_VERTEX_BUFFER);
-
-    MMVertex* vIn = &vertices_[0];
-
-    for (unsigned i = 0; i < numVertices_; i++, vIn++)
+    if (staticModel_ && staticModel_->GetCastShadows())
     {
-        *vertices++ = vIn->position_.x_;
-        *vertices++ = vIn->position_.y_;
-        *vertices++ = vIn->position_.z_;
+        // Create the embree mesh
+        embreeGeomID_ = rtcNewTriangleMesh(scene, RTC_GEOMETRY_STATIC, numTriangles_, numVertices_);
+        rtcSetUserData(scene, embreeGeomID_, this);
+        rtcSetOcclusionFilterFunction(scene, embreeGeomID_, OcclusionFilter);
 
-        // Note that RTC_VERTEX_BUFFER is 16 byte aligned, thus extra component
-        // which isn't used, though we'll initialize it
-        *vertices++ = 0.0f;
+        // Populate vertices
+
+        float* vertices = (float*) rtcMapBuffer(scene, embreeGeomID_, RTC_VERTEX_BUFFER);
+
+        MMVertex* vIn = &vertices_[0];
+
+        for (unsigned i = 0; i < numVertices_; i++, vIn++)
+        {
+            *vertices++ = vIn->position_.x_;
+            *vertices++ = vIn->position_.y_;
+            *vertices++ = vIn->position_.z_;
+
+            // Note that RTC_VERTEX_BUFFER is 16 byte aligned, thus extra component
+            // which isn't used, though we'll initialize it
+            *vertices++ = 0.0f;
+        }
+
+        rtcUnmapBuffer(scene, embreeGeomID_, RTC_VERTEX_BUFFER);
+
+        uint32_t* triangles = (uint32_t*) rtcMapBuffer(scene, embreeGeomID_, RTC_INDEX_BUFFER);
+
+        for (size_t i = 0; i < numTriangles_; i++)
+        {
+            MMTriangle* tri = &triangles_[i];
+
+            *triangles++ = tri->indices_[0];
+            *triangles++ = tri->indices_[1];
+            *triangles++ = tri->indices_[2];
+        }
+
+        rtcUnmapBuffer(scene, embreeGeomID_, RTC_INDEX_BUFFER);
     }
-
-    rtcUnmapBuffer(scene, embreeGeomID_, RTC_VERTEX_BUFFER);
-
-    uint32_t* triangles = (uint32_t*) rtcMapBuffer(scene, embreeGeomID_, RTC_INDEX_BUFFER);
-
-    for (size_t i = 0; i < numTriangles_; i++)
-    {
-        MMTriangle* tri = &triangles_[i];
-
-        *triangles++ = tri->indices_[0];
-        *triangles++ = tri->indices_[1];
-        *triangles++ = tri->indices_[2];
-    }
-
-    rtcUnmapBuffer(scene, embreeGeomID_, RTC_INDEX_BUFFER);
 
     float lmScale = staticModel_->GetLightmapScale();
 
@@ -351,34 +478,49 @@ void BakeMesh::Preprocess()
     if (!GetLightmap() || lmScale <= 0.0f)
         return;
 
-    // TODO: global light scale for quick bakes and super sampling mode
     unsigned lmSize = staticModel_->GetLightmapSize();
 
     if (!lmSize)
     {
-        // TODO: calculate surface area instead of using this rough metric
-        Vector3 size = staticModel_->GetModel()->GetBoundingBox().Size();
-        size *= node_->GetWorldScale();
+        float totalarea = 0.0f;
 
-        float sz = 1.0f - (Min<float>(size.Length(), 32.0f)/32.0f);
-
-        sz += sz * 0.5f;
-
-        float lexelScale = 16.0f + sz * 64.0f;
-
-        lmSize = size.x_ * lexelScale * lmScale;
-        lmSize += size.y_ * lexelScale * lmScale;
-        lmSize += size.z_ * lexelScale * lmScale;
-
-        if (lmSize > 512 && !IsPowerOfTwo(lmSize))
+        for (unsigned i = 0; i < numTriangles_; i++)
         {
-            lmSize = NextPowerOfTwo(lmSize)/2;
+            MMTriangle* tri = &triangles_[i];
+
+            MMVertex* v0 = &vertices_[tri->indices_[0]];
+            MMVertex* v1 = &vertices_[tri->indices_[1]];
+            MMVertex* v2 = &vertices_[tri->indices_[2]];
+
+            totalarea += AreaOfTriangle(v0->position_,
+                                        v1->position_,
+                                        v2->position_);
         }
+
+        // TODO: global light scale for quick bakes and super sampling mode
+        float globalScale = 1.0f;
+
+        if (globalScale < 0.1f)
+            globalScale = 0.1f;
+
+        // scene scale
+        float sceneScale = 0.25f;
+
+        float maxarea = 64.0f * sceneScale;
+
+        if (totalarea > maxarea)
+            totalarea = maxarea;
+
+        float sz = 1.0f - (totalarea/maxarea);
+
+        sz = totalarea * 0.25f + totalarea * sz;
+
+        lmSize = CalcLightMapSize(sz * 64.0f * lmScale * globalScale);
 
     }
 
-    if (lmSize < 128)
-        lmSize = 128;
+    if (lmSize < 32)
+        lmSize = 32;
 
     if (lmSize > 4096)
         lmSize = 4096;

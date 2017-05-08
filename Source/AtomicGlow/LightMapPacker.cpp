@@ -174,7 +174,7 @@ void LightMapPacker::SaveLightmaps()
 #ifdef ATOMIC_PLATFORM_WINDOWS
         String filename = ToString("C:/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Textures/Scene_Lightmap%u.png", lightmap->GetID());
 #else
-        String filename = ToString("/Users/jenge/Dev/atomic/AtomicTests/AtomicGlowTest/Resources/Textures/Scene_Lightmap%u.png", lightmap->GetID());
+        String filename = ToString("/Users/jenge/Dev/TestScene/output/Resources/Textures/Scene_Lightmap%u.png", lightmap->GetID());
 #endif
         lightmap->GetImage()->SavePNG(filename);
 

@@ -22,6 +22,7 @@
 //
 
 #include <Atomic/Core/CoreEvents.h>
+#include <Atomic/Engine/EngineDefs.h>
 #include <Atomic/Engine/Engine.h>
 #include <Atomic/IO/FileSystem.h>
 #include <Atomic/IO/Log.h>
@@ -115,8 +116,11 @@ namespace AtomicGlow
         }
 
         engineParameters_.InsertNew("LogName", fileSystem->GetAppPreferencesDir("AtomicEditor", "Logs") + "AtomicGlow.log");
+
+#ifdef ATOMIC_DEV_BUILD
         engineParameters_["ResourcePrefixPaths"] = env->GetRootSourceDir() + "/Resources/";
         engineParameters_["ResourcePaths"] = ToString("CoreData;EditorData;%sResources;%sCache", projectPath.CString(), projectPath.CString());
+#endif
 
         IPCClientApp::Setup();
 
@@ -125,7 +129,7 @@ namespace AtomicGlow
     void AtomicGlowApp::HandleUpdate(StringHash eventType, VariantMap& eventData)
     {
         SharedPtr<SceneBaker> baker(new SceneBaker(context_));
-        baker->LoadScene("Scenes/Scene.scene");
+        baker->LoadScene("Scenes/Demo1.scene");
         baker->Preprocess();
         baker->Light();
         baker->GenerateLightmaps();
