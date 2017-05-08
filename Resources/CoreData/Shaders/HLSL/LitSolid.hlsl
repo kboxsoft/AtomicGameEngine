@@ -275,7 +275,9 @@ void PS(
             finalColor += cMatEnvMapColor * SampleCube(EnvCubeMap, reflect(iReflectionVec, normal)).rgb;
         #endif
         #ifdef LIGHTMAP
-            finalColor += Sample2D(EmissiveMap, iTexCoord2).rgb * diffColor.rgb;
+            // ATOMIC BEGIN
+            finalColor += Sample2D(EmissiveMap, iTexCoord2).rgb * float3(3, 3, 3) * diffColor.rgb;
+            // ATOMIC END
         #endif
         #ifdef EMISSIVEMAP
             finalColor += cMatEmissiveColor * Sample2D(EmissiveMap, iTexCoord.xy).rgb;
@@ -308,7 +310,9 @@ void PS(
             finalColor += cMatEnvMapColor * SampleCube(EnvCubeMap, reflect(iReflectionVec, normal)).rgb;
         #endif
         #ifdef LIGHTMAP
-            finalColor += Sample2D(EmissiveMap, iTexCoord2).rgb * diffColor.rgb;
+            // ATOMIC BEGIN
+            finalColor += Sample2D(EmissiveMap, iTexCoord2).rgb * float3(3, 3, 3) * diffColor.rgb;
+            // ATOMIC END
         #endif
         #ifdef EMISSIVEMAP
             finalColor += cMatEmissiveColor * Sample2D(EmissiveMap, iTexCoord.xy).rgb;

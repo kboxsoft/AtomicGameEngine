@@ -26,6 +26,7 @@
 #include <Atomic/Engine/Engine.h>
 #include <Atomic/IO/FileSystem.h>
 #include <Atomic/IO/Log.h>
+#include <Atomic/Resource/ResourceMapRouter.h>
 
 #include <ToolCore/ToolSystem.h>
 #include <ToolCore/ToolEnvironment.h>
@@ -129,7 +130,7 @@ namespace AtomicGlow
     void AtomicGlowApp::HandleUpdate(StringHash eventType, VariantMap& eventData)
     {
         SharedPtr<SceneBaker> baker(new SceneBaker(context_));
-        baker->LoadScene("Scenes/Demo1.scene");
+        baker->LoadScene("Scenes/Scene.scene");
         baker->Preprocess();
         baker->Light();
         baker->GenerateLightmaps();
@@ -143,6 +144,9 @@ namespace AtomicGlow
     {
         if (exitCode_)
             return;
+
+        // Initialize resource mapper
+        SharedPtr<ResourceMapRouter> router(new ResourceMapRouter(context_, "__atomic_ResourceCacheMap.json"));
 
         if (!engine_->Initialize(engineParameters_))
         {

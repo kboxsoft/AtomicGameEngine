@@ -253,13 +253,15 @@ bool ModelImporter::Import()
         // mdl files are native file format that doesn't need to be converted
         // doesn't allow scale, animations legacy primarily for ToonTown
 
-        if (!fs->Copy(asset_->GetPath(), asset_->GetCachePath() + ".mdl"))
+        String cacheFilename = asset_->GetCachePath() + ".mdl";
+
+        if (!fs->Copy(asset_->GetPath(), cacheFilename))
         {
             importNode_= 0;
             return false;
-        }
+        }        
 
-        Model* mdl = cache->GetResource<Model>(asset_->GetPath());
+        Model* mdl = cache->GetResource<Model>(cacheFilename);
 
         if (!mdl)
         {
@@ -268,7 +270,7 @@ bool ModelImporter::Import()
         }
 
         String pathName, fileName, extension;
-        SplitPath(asset_->GetPath(), pathName, fileName, extension);
+        SplitPath(asset_->GetCachePath(), pathName, fileName, extension);
 
         MeshLightmapUVGen::Settings uvsettings;
         MeshLightmapUVGen uvgen(context_, mdl, fileName, uvsettings);
@@ -280,21 +282,24 @@ bool ModelImporter::Import()
         }
 
         File outFile(context_);
-        if (!outFile.Open(asset_->GetPath(), FILE_WRITE))
+        if (!outFile.Open(cacheFilename, FILE_WRITE))
         {
             ATOMIC_LOGERRORF("Could not open output file %s", asset_->GetPath().CString());
             return false;
         }
 
         mdl->Save(outFile);
-
+        
         outFile.Close();
-
 
         // Force a reload, though file watchers will catch this delayed and load again
         cache->ReloadResource(mdl);
-
         importNode_->CreateComponent<StaticModel>()->SetModel(mdl);
+
+        // We ask for the mdl in the project, which should be resource mapped to the cache file
+        mdl = cache->GetResource<Model>(asset_->GetPath());
+        // force a reload so it is also current
+        cache->ReloadResource(mdl);        
 
         // END GLOW FIXME
     }

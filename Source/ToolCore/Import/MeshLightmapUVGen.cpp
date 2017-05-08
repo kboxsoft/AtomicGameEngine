@@ -136,6 +136,7 @@ void MeshLightmapUVGen::WriteLightmapUVCoords()
         if (texCoordCount == 0)
         {
             // We don't have a valid UV set in UV0
+            // FIX ME: This doesn't currently work
             mpGeo->elements_.Push(VertexElement(TYPE_VECTOR2, SEM_TEXCOORD, 0));
             mpGeo->elements_.Push(VertexElement(TYPE_VECTOR2, SEM_TEXCOORD, 1));
         }
