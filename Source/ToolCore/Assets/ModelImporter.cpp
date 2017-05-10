@@ -296,11 +296,6 @@ bool ModelImporter::Import()
         cache->ReloadResource(mdl);
         importNode_->CreateComponent<StaticModel>()->SetModel(mdl);
 
-        // We ask for the mdl in the project, which should be resource mapped to the cache file
-        mdl = cache->GetResource<Model>(asset_->GetPath());
-        // force a reload so it is also current
-        cache->ReloadResource(mdl);        
-
         // END GLOW FIXME
     }
     else

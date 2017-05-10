@@ -77,7 +77,7 @@ bool SceneBaker::GenerateLightmaps()
 #ifdef ATOMIC_PLATFORM_WINDOWS
     String scenefilename = ToString("C:/Dev/atomic/AtomicExamplesPrivate/AtomicGlowTests/TestScene1/Resources/Scenes/LitScene.scene");
 #else
-    String scenefilename = ToString("/Users/jenge/Dev/TestScene/output/Resources/Scenes/LitScene.scene");
+    String scenefilename = ToString("/Users/jenge/Dev/atomic/AtomicExamplesPrivate/AtomicGlowTests/TestScene1/Resources/Scenes/LitScene.scene");
 #endif
 
     File saveFile(context_, scenefilename, FILE_WRITE);

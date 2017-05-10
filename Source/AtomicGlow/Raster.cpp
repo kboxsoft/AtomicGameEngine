@@ -450,8 +450,8 @@ bool Triangle::draw(const Vector2 & extents, bool enableScissors, RasterSampling
                     Vector3 tex = texRow;
                     for(int ix = x; ix < x + q; ix++)
                     {
-                        //Vector3 tex = t1 + dx * (ix - v1.x_) + dy * (iy - v1.y_);
-                        if (!cb(param, ix, iy, tex, dx, dy, 1.0)) {
+                        Vector3 tex2 = t1 + dx * (ix - v1.x_) + dy * (iy - v1.y_);
+                        if (!cb(param, ix, iy, tex2, dx, dy, 1.0)) {
                             // early out.
                             return false;
                         }
@@ -478,7 +478,8 @@ bool Triangle::draw(const Vector2 & extents, bool enableScissors, RasterSampling
                     {
                         if(CX1 > 0 && CX2 > 0 && CX3 > 0)
                         {
-                            if (!cb(param, ix, iy, tex, dx, dy, 1.0))
+                            Vector3 tex2 = t1 + dx * (ix - v1.x_) + dy * (iy - v1.y_);
+                            if (!cb(param, ix, iy, tex2, dx, dy, 1.0))
                             {
                                 // early out.
                                 return false;

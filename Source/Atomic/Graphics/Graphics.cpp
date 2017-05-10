@@ -445,7 +445,7 @@ static PODVector<Texture2D*> lightmapTextures;
 
 void Graphics::SetLightmapTexture(unsigned id)
 {
-    const unsigned numLightmaps = 16;
+    const unsigned numLightmaps = 25;
     if (!lightmapTextures.Size())
     {
         lightmapTextures.Resize(numLightmaps);

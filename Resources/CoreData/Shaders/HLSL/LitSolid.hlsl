@@ -276,7 +276,7 @@ void PS(
         #endif
         #ifdef LIGHTMAP
             // ATOMIC BEGIN
-            finalColor += Sample2D(EmissiveMap, iTexCoord2).rgb * float3(3, 3, 3) * diffColor.rgb;
+            finalColor += Sample2D(EmissiveMap, iTexCoord2).rgb * float3(4, 4, 4) * diffColor.rgb;
             // ATOMIC END
         #endif
         #ifdef EMISSIVEMAP
@@ -311,7 +311,7 @@ void PS(
         #endif
         #ifdef LIGHTMAP
             // ATOMIC BEGIN
-            finalColor += Sample2D(EmissiveMap, iTexCoord2).rgb * float3(3, 3, 3) * diffColor.rgb;
+            finalColor += Sample2D(EmissiveMap, iTexCoord2).rgb * float3(4, 4, 4) * diffColor.rgb;
             // ATOMIC END
         #endif
         #ifdef EMISSIVEMAP

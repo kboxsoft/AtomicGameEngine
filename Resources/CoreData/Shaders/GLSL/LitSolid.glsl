@@ -203,7 +203,7 @@ void PS()
         #endif
         #ifdef LIGHTMAP
             // ATOMIC BEGIN
-            finalColor += texture2D(sEmissiveMap, vTexCoord2).rgb * vec3(3, 3, 3) * diffColor.rgb;
+            finalColor += texture2D(sEmissiveMap, vTexCoord2).rgb * vec3(4, 4, 4) * diffColor.rgb;
             // ATOMIC END
         #endif
         #ifdef EMISSIVEMAP
@@ -238,7 +238,7 @@ void PS()
         #endif
         #ifdef LIGHTMAP
             // ATOMIC BEGIN
-            finalColor += texture2D(sEmissiveMap, vTexCoord2).rgb * vec3(3, 3, 3) * diffColor.rgb;
+            finalColor += texture2D(sEmissiveMap, vTexCoord2).rgb * vec3(4, 4, 4) * diffColor.rgb;
             // ATOMIC END
         #endif
         #ifdef EMISSIVEMAP

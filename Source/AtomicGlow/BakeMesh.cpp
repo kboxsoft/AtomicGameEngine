@@ -84,6 +84,8 @@ bool BakeMesh::FillLexelsCallback(void* param, int x, int y, const Vector3& bary
 
 bool BakeMesh::LightPixel(BakeMesh::ShaderData* shaderData, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage)
 {
+    if (x >= radianceWidth_ || y >= radianceHeight_)
+        return true;
 
     meshMutex_.Acquire();
     const Vector3& rad = radiance_[y * radianceWidth_ + x];
@@ -133,6 +135,41 @@ bool BakeMesh::LightPixel(BakeMesh::ShaderData* shaderData, int x, int y, const 
     return true;
 }
 
+void BakeMesh::LightTrianglesWork(const WorkItem* item, unsigned threadIndex)
+{
+    ShaderData shaderData;
+    Vector2 triUV1[3];
+
+    BakeMesh* bakeMesh = shaderData.bakeMesh_ = (BakeMesh*) item->aux_;
+
+    Vector2 extents(bakeMesh->radianceWidth_, bakeMesh->radianceHeight_);
+
+    MMTriangle* start = reinterpret_cast<MMTriangle*>(item->start_);
+    MMTriangle* end = reinterpret_cast<MMTriangle*>(item->end_);
+
+    while (start <= end)
+    {
+        MMTriangle* tri = start;
+
+        shaderData.triangleIdx_ = tri - &bakeMesh->triangles_[0];
+
+        start++;
+
+        for (unsigned j = 0; j < 3; j++)
+        {
+            unsigned idx = tri->indices_[j];
+            triUV1[j] = bakeMesh->vertices_[idx].uv1_;
+            triUV1[j].x_ *= float(bakeMesh->radianceWidth_);
+            triUV1[j].y_ *= float(bakeMesh->radianceHeight_);
+        }
+
+        Raster::DrawTriangle(false, extents, false, triUV1, FillLexelsCallback, &shaderData );
+
+    }
+
+}
+
+
 void BakeMesh::ContributeRadiance(int x, int y, const Vector3& radiance)
 {
     MutexLock lock(meshMutex_);
@@ -150,11 +187,61 @@ void BakeMesh::ContributeRadiance(int x, int y, const Vector3& radiance)
 
 }
 
+void BakeMesh::FloodRadianceMap()
+{
+    for (int y = 0; y < radianceHeight_; y++)
+    {
+        for (int x = 0; x < radianceWidth_; x++)
+        {
+            Vector3 rad = radiance_[y * radianceWidth_ + x];
+
+            if (rad.x_ < 0.0f)
+            {
+                rad = Vector3::ZERO;
+                int numSamples = 0;
+
+                int area = 3;
+
+                for (int i = y - area; i <= y + area; i++ )
+                {
+                    for (int j = x - area; j <= x + area; j++ )
+                    {
+                        if (i == y || j == x)
+                            continue;
+
+                        if (i < 0 || i >= radianceHeight_)
+                            continue;
+
+                        if (j < 0 || j >= radianceWidth_)
+                            continue;
+
+                        const Vector3& rad2 = radiance_[i * radianceWidth_ + j];
+
+                        if (rad2.x_ < 0.0f)
+                            continue;
+
+                        rad += rad2;
+                        numSamples++;
+                    }
+                }
+
+                if (numSamples)
+                {
+                    rad /= numSamples;
+                    radiance_[y * radianceWidth_ + x] = rad;
+                }
+
+            }
+        }
+    }
+}
 
 void BakeMesh::GenerateRadianceMap()
 {
     if (radianceMap_.NotNull())
         return;
+
+    //FloodRadianceMap();
 
     radianceMap_ = new RadianceMap(context_);
 
@@ -197,6 +284,9 @@ void BakeMesh::GenerateRadianceMap()
 
     SharedArrayPtr<Color> tmp(new Color[radianceWidth_ * radianceHeight_]);
 
+
+    // dilation disabled, may not need this once the edge precision issues are solved
+    /*
     for (int step = 0; step < 2; step++)
     {
         memset (&tmp[0], 0, radianceWidth_ * radianceHeight_ * sizeof(Color));
@@ -252,6 +342,8 @@ void BakeMesh::GenerateRadianceMap()
         }
     }
 
+    */
+
     Color ambient = Color::BLACK;
 
     if (staticModel_ && staticModel_->GetZone())
@@ -259,51 +351,20 @@ void BakeMesh::GenerateRadianceMap()
         ambient = staticModel_->GetZone()->GetAmbientColor();
     }
 
-    if (ambient != Color::BLACK)
+    // TODO: add this as a config option?
+    bool useDebugFillColor = true;
+
+    if (ambient != Color::BLACK || useDebugFillColor)
     {
         for (int y = 0; y < radianceHeight_ ; y++)
         {
             for (int x = 0; x < radianceWidth_; x++)
             {
-                if (image->GetPixel(x, y) == Color::BLACK)
-                    image->SetPixel(x, y, ambient);
+                if (radiance_[y * radianceWidth_ + x].x_ < 0.0f || image->GetPixel(x, y) == Color::BLACK)
+                    image->SetPixel(x, y, useDebugFillColor ? Color::MAGENTA : ambient);
 
             }
         }
-    }
-
-}
-
-void BakeMesh::LightTrianglesWork(const WorkItem* item, unsigned threadIndex)
-{
-    ShaderData shaderData;
-    Vector2 triUV1[3];
-
-    BakeMesh* bakeMesh = shaderData.bakeMesh_ = (BakeMesh*) item->aux_;
-
-    Vector2 extents(bakeMesh->radianceWidth_, bakeMesh->radianceHeight_);
-
-    MMTriangle* start = reinterpret_cast<MMTriangle*>(item->start_);
-    MMTriangle* end = reinterpret_cast<MMTriangle*>(item->end_);
-
-    while (start <= end)
-    {
-        MMTriangle* tri = start;
-
-        shaderData.triangleIdx_ = tri - &bakeMesh->triangles_[0];
-
-        start++;
-
-        for (unsigned j = 0; j < 3; j++)
-        {
-            unsigned idx = tri->indices_[j];
-            triUV1[j] = bakeMesh->vertices_[idx].uv1_;
-            triUV1[j].x_ *= float(bakeMesh->radianceWidth_);
-            triUV1[j].y_ *= float(bakeMesh->radianceHeight_);
-        }
-
-        Raster::DrawTriangle(true, extents, true, triUV1, FillLexelsCallback, &shaderData );
-
     }
 
 }
@@ -373,7 +434,7 @@ void BakeMesh::Light()
         if (item->end_ == &triangles_[numTriangles_ - 1])
             break;
 
-        curIdx += numTrianglePerItem;
+        curIdx += numTrianglePerItem + 1;
     }
 
 

@@ -169,7 +169,7 @@ bool ModelPacker::Pack()
 
                 for (unsigned k = 0; k < mpGeo->numIndices_; k++)
                 {
-                    *dest++ = (unsigned short) (mpGeo->indices_[k] + startIndexOffset);
+                    *dest++ = (unsigned short) (mpGeo->indices_[k] + startVertexOffset);
                 }
             }
             else
@@ -178,7 +178,7 @@ bool ModelPacker::Pack()
 
                 for (unsigned k = 0; k < mpGeo->numIndices_; k++)
                 {
-                    *dest++ = mpGeo->indices_[k] + startIndexOffset;
+                    *dest++ = mpGeo->indices_[k] + startVertexOffset;
                 }
 
             }

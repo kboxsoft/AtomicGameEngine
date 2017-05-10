@@ -141,6 +141,7 @@ private:
     bool LightPixel(ShaderData* shaderData, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage);
     bool LightSample(MMSample* sample);
 
+    void FloodRadianceMap();
     void GenerateRadianceMap();
 
     // mesh geometry, in world space
