@@ -446,20 +446,29 @@ static PODVector<Texture2D*> lightmapTextures;
 void Graphics::SetLightmapTexture(unsigned id)
 {
     const unsigned numLightmaps = 25;
+
     if (!lightmapTextures.Size())
     {
-        lightmapTextures.Resize(numLightmaps);
 
         ResourceCache* cache = GetSubsystem<ResourceCache>();
 
         for (unsigned i = 0; i < numLightmaps; i++)
         {
-            lightmapTextures[i] = cache->GetResource<Texture2D>(ToString("Textures/Scene_Lightmap%u.png", i));
+            Texture2D* texture = cache->GetResource<Texture2D>(ToString("Textures/Scene_Lightmap%u.png", i));
+
+            if (!texture)
+                break;
+
+            texture->SetAddressMode(COORD_U, ADDRESS_CLAMP);
+            texture->SetAddressMode(COORD_V, ADDRESS_CLAMP);
+
+            lightmapTextures.Push(texture);
+
         }
 
     }
 
-    if (id > lightmapTextures.Size())
+    if (id >= lightmapTextures.Size())
         return;
 
     SetTexture(TU_EMISSIVE, lightmapTextures[id]);

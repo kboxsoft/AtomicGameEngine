@@ -142,6 +142,10 @@ private:
     bool LightSample(MMSample* sample);
 
     void FloodRadianceMap();
+
+    void BuildSearchPattern(int searchSize, Vector<Pair<int, int>>& searchPattern);
+    void FillInvalidRadiance(int bleedRadius);
+
     void GenerateRadianceMap();
 
     // mesh geometry, in world space

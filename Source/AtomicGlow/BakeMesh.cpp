@@ -163,7 +163,7 @@ void BakeMesh::LightTrianglesWork(const WorkItem* item, unsigned threadIndex)
             triUV1[j].y_ *= float(bakeMesh->radianceHeight_);
         }
 
-        Raster::DrawTriangle(false, extents, false, triUV1, FillLexelsCallback, &shaderData );
+        Raster::DrawTriangle(true, extents, false, triUV1, FillLexelsCallback, &shaderData );
 
     }
 
@@ -185,6 +185,68 @@ void BakeMesh::ContributeRadiance(int x, int y, const Vector3& radiance)
         radiance_[y * radianceWidth_ + x] += radiance;
     }
 
+}
+
+struct CoordDistanceComparer
+{
+    bool operator() (Pair<int, int> &left, Pair<int, int> &right)
+    {
+        return (left.first_*left.first_ + left.second_*left.second_) <
+            (right.first_*right.first_ + right.second_*right.second_);
+    }
+};
+
+void BakeMesh::BuildSearchPattern(int searchSize, Vector<Pair<int, int>>& searchPattern)
+{
+    searchPattern.Clear();
+    for (int i = -searchSize; i <= searchSize; ++i)
+    {
+        for (int j = -searchSize; j <= searchSize; ++j)
+        {
+            if (i == 0 && j == 0)
+                continue;
+            searchPattern.Push(Pair<int, int>(i, j));
+        }
+    }
+    CoordDistanceComparer comparer;
+    Sort(searchPattern.Begin(), searchPattern.End(), comparer);
+}
+
+void BakeMesh::FillInvalidRadiance(int bleedRadius)
+{
+    Vector<Pair<int, int>> searchPattern;
+    BuildSearchPattern(bleedRadius, searchPattern);
+
+    Vector<Pair<int, int> >::Iterator iter;
+
+    for (int i = 0; i < radianceWidth_; ++i)
+    {
+        for (int j = 0; j < radianceHeight_; ++j)
+        {
+            if (radiance_[j * radianceHeight_ + i].x_ >= 0.0f)
+                continue;
+
+            // Invalid pixel found
+            for (iter = searchPattern.Begin(); iter != searchPattern.End(); ++iter)
+            {
+                int x = i + iter->first_;
+                int y = j + iter->second_;
+
+                if (x < 0 || x >= radianceWidth_)
+                    continue;
+
+                if (y < 0 || y >= radianceHeight_)
+                    continue;
+
+                // If search pixel is valid assign it to the invalid pixel and stop searching
+                if (radiance_[y * radianceWidth_ + x].x_ >= 0.0f)
+                {
+                    radiance_[j * radianceHeight_ + i] = radiance_[y * radianceWidth_ + x];
+                    break;
+                }
+            }
+        }
+    }
 }
 
 void BakeMesh::FloodRadianceMap()
@@ -241,6 +303,7 @@ void BakeMesh::GenerateRadianceMap()
     if (radianceMap_.NotNull())
         return;
 
+    FillInvalidRadiance(3);
     //FloodRadianceMap();
 
     radianceMap_ = new RadianceMap(context_);
@@ -284,66 +347,6 @@ void BakeMesh::GenerateRadianceMap()
 
     SharedArrayPtr<Color> tmp(new Color[radianceWidth_ * radianceHeight_]);
 
-
-    // dilation disabled, may not need this once the edge precision issues are solved
-    /*
-    for (int step = 0; step < 2; step++)
-    {
-        memset (&tmp[0], 0, radianceWidth_ * radianceHeight_ * sizeof(Color));
-
-        for (int y = 0; y < radianceHeight_ ; y++)
-        {
-            for (int x = 0; x < radianceWidth_; x++)
-            {
-                int center = x + y * radianceWidth_;
-
-                Color color = image->GetPixel(x, y);
-                Vector3& rad = radiance_[center];
-
-                tmp[center] = color;
-
-                if (rad.x_ < 0.0f)
-                {
-                    for (int k = 0; k < 9; k++)
-                    {
-                        int i = (k / 3) - 1, j = (k % 3) - 1;
-
-                        if (i == 0 && j == 0)
-                        {
-                            continue;
-                        }
-
-                        i += x;
-                        j += y;
-
-                        if (i < 0 || j < 0 || i >= radianceWidth_ || j >=  radianceHeight_ )
-                        {
-                            continue;
-                        }
-
-                        Color color2 = image->GetPixel(i, j);
-
-                        if (color2 != Color::BLACK)
-                        {
-                            tmp[center] = color2;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        for (int y = 0; y < radianceHeight_ ; y++)
-        {
-            for (int x = 0; x < radianceWidth_; x++)
-            {
-                image->SetPixel(x, y, tmp[y * radianceWidth_ + x]);
-            }
-        }
-    }
-
-    */
-
     Color ambient = Color::BLACK;
 
     if (staticModel_ && staticModel_->GetZone())
@@ -352,7 +355,7 @@ void BakeMesh::GenerateRadianceMap()
     }
 
     // TODO: add this as a config option?
-    bool useDebugFillColor = true;
+    bool useDebugFillColor = false;
 
     if (ambient != Color::BLACK || useDebugFillColor)
     {
@@ -437,40 +440,11 @@ void BakeMesh::Light()
         curIdx += numTrianglePerItem + 1;
     }
 
-
-
-    /*
-    Vector2 extents(radianceWidth_, radianceHeight_);
-    Vector2 triUV1[3];
-
-    ShaderData shaderData;
-
-    shaderData.bakeMesh_ = this;
-
-    for (unsigned i = 0; i < numTriangles_; i++)
-    {
-        shaderData.triangleIdx_ = i;
-
-        for (unsigned j = 0; j < 3; j++)
-        {
-            unsigned idx = triangles_[i].indices_[j];
-            triUV1[j] = vertices_[idx].uv1_;
-            triUV1[j].x_ *= float(radianceWidth_);
-            triUV1[j].y_ *= float(radianceHeight_);
-        }
-
-        Raster::DrawTriangle(true, extents, true, triUV1, FillLexelsCallback, &shaderData );
-
-    }
-
-    GenerateRadianceMap();
-    */
-
 }
 
 static unsigned CalcLightMapSize(unsigned sz)
 {
-    // highest multiple of 16
+    // highest multiple of 16, note rasterizer requires a multiple of 8!
     sz = (sz + 16) & ~15;
 
     if (sz > 512 && !IsPowerOfTwo(sz))
@@ -733,9 +707,15 @@ void BakeMesh::OcclusionFilter(void* ptr, RTCRay& ray)
     int x = diffuse->GetWidth() * st.x_;
     int y = diffuse->GetHeight() * st.y_;
 
+    if (x < 0)
+        x = diffuse->GetWidth() + x;
+
+    if (y < 0)
+        y = diffuse->GetWidth() + y;
+
     Color color = diffuse->GetPixel(x, y);
 
-    if (color.a_ < 1.0f)
+    if (color.a_ < 0.5f)
     {
         ray.geomID = RTC_INVALID_GEOMETRY_ID;
     }
