@@ -176,7 +176,23 @@ void LightMapPacker::SaveLightmaps()
 #else
         String filename = ToString("/Users/jenge/Dev/atomic/AtomicExamplesPrivate/AtomicGlowTests/TestScene1/Resources/Textures/Scene_Lightmap%u.png", lightmap->GetID());
 #endif
-        lightmap->GetImage()->SavePNG(filename);
+
+        if (LIGHTMAP_WIDTH != LIGHTMAP_OUTPUT_WIDTH ||
+            LIGHTMAP_HEIGHT != LIGHTMAP_OUTPUT_HEIGHT)
+        {
+            // Timer t;
+            SharedPtr<Image> tmp(new Image(context_));
+            tmp->SetSize(LIGHTMAP_OUTPUT_WIDTH, LIGHTMAP_OUTPUT_HEIGHT, 3);
+            // optimize, this is a pretty slow resample about 1 sec for 4096 -> 2048
+            // also, this is a bilinear downscale, better downsample filter to use?
+            tmp->SetSubimage(lightmap->GetImage(), IntRect(0, 0, LIGHTMAP_OUTPUT_WIDTH, LIGHTMAP_OUTPUT_HEIGHT));
+            tmp->SavePNG(filename);
+            // ATOMIC_LOGINFOF("Image resample took %u ms", t.GetMSec(false));
+        }
+        else
+        {
+            lightmap->GetImage()->SavePNG(filename);
+        }
 
     }
 

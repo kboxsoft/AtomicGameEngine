@@ -35,9 +35,19 @@ namespace AtomicGlow
 
 using namespace Atomic;
 
-// fixme: this needs to be configurable
-const int LIGHTMAP_WIDTH = 2048;
-const int LIGHTMAP_HEIGHT = 2048;
+
+const int LIGHTMAP_MAX_WIDTH = 4096;
+const int LIGHTMAP_MAX_HEIGHT = 4096;
+
+// lightmaps are generated and filtered at this super sample size
+const int LIGHTMAP_WIDTH = LIGHTMAP_MAX_WIDTH;
+const int LIGHTMAP_HEIGHT = LIGHTMAP_MAX_HEIGHT;
+
+// The output lightmaps size, if smaller output will be subsampled
+// for better accuracy
+const int LIGHTMAP_OUTPUT_WIDTH = 2048;
+const int LIGHTMAP_OUTPUT_HEIGHT = 2048;
+
 
 class LightMap : public Object
 {
