@@ -30,6 +30,7 @@
 #include "BakeMaterial.h"
 #include "BakeModel.h"
 #include "BakeNode.h"
+#include "RadianceMap.h"
 
 namespace AtomicGlow
 {
@@ -40,26 +41,10 @@ class SceneBaker;
 class BakeLight;
 class BakeMesh;
 
-class RadianceMap : public Object
-{
-    ATOMIC_OBJECT(RadianceMap, Object)
-
-    public:
-
-    RadianceMap(Context* context);
-    virtual ~RadianceMap();
-
-    int GetWidth() const { return image_.Null() ? 0 : image_->GetWidth(); }
-    int GetHeight() const { return image_.Null() ? 0 : image_->GetHeight(); }
-
-    SharedPtr<BakeMesh> bakeMesh_;
-    SharedPtr<Image> image_;
-    bool packed_;
-
-};
-
 class BakeMesh : public BakeNode
 {
+    friend class RadianceMap;
+
     ATOMIC_OBJECT(BakeMesh, BakeNode)
 
     public:
@@ -124,6 +109,8 @@ class BakeMesh : public BakeNode
 
     void Pack(unsigned lightmapIdx, Vector4 tilingOffset);
 
+    const Color& GetAmbientColor() const { return ambientColor_; }
+
 private:
 
     struct ShaderData
@@ -140,8 +127,6 @@ private:
 
     bool LightPixel(ShaderData* shaderData, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage);
     bool LightSample(MMSample* sample);
-
-    void FloodRadianceMap();
 
     void BuildSearchPattern(int searchSize, Vector<Pair<int, int>>& searchPattern);
     void FillInvalidRadiance(int bleedRadius);
@@ -180,6 +165,8 @@ private:
 
     Mutex meshMutex_;    
     unsigned numWorkItems_;
+
+    Color ambientColor_;
 
 };
 

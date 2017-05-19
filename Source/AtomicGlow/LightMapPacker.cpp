@@ -133,6 +133,8 @@ void LightMapPacker::EmitLightmap(unsigned lightMapID)
 
     rect = (stbrp_rect*) rects.Get();
 
+    Color ambient = Color::BLACK;
+
     for (unsigned i = 0; i < workingSet_.Size(); i++)
     {
         RadianceMap* radMap = workingSet_[i];
@@ -150,7 +152,35 @@ void LightMapPacker::EmitLightmap(unsigned lightMapID)
                                                     float(rect->x)/float(width),
                                                     float(rect->y)/float(height)));
 
+        if (ambient == Color::BLACK)
+        {
+            // TODO, different zone ambients?
+            ambient = radMap->bakeMesh_->GetAmbientColor();
+        }
+
         rect++;
+    }    
+
+    // TODO: add this as a config option?
+    bool useDebugFillColor = false;
+
+    if (useDebugFillColor)
+    {
+        ambient = Color::MAGENTA;
+    }
+
+    if (ambient != Color::BLACK)
+    {
+        for (int y = 0; y < image->GetHeight() ; y++)
+        {
+            for (int x = 0; x < image->GetWidth(); x++)
+            {
+                if (image->GetPixel(x, y) == Color::BLACK)
+                {
+                    image->SetPixel(x, y, ambient);
+                }
+            }
+        }
     }
 
     SharedPtr<LightMap> lightmap(new LightMap(context_));
@@ -169,30 +199,13 @@ void LightMapPacker::SaveLightmaps()
     {
         LightMap* lightmap = lightMaps_[i];
 
-        lightmap->Filter();
-
 #ifdef ATOMIC_PLATFORM_WINDOWS
         String filename = ToString("C:/Dev/atomic/AtomicExamplesPrivate/AtomicGlowTests/TestScene1/Resources/Textures/Scene_Lightmap%u.png", lightmap->GetID());
 #else
         String filename = ToString("/Users/jenge/Dev/atomic/AtomicExamplesPrivate/AtomicGlowTests/TestScene1/Resources/Textures/Scene_Lightmap%u.png", lightmap->GetID());
 #endif
 
-        if (LIGHTMAP_WIDTH != LIGHTMAP_OUTPUT_WIDTH ||
-            LIGHTMAP_HEIGHT != LIGHTMAP_OUTPUT_HEIGHT)
-        {
-            // Timer t;
-            SharedPtr<Image> tmp(new Image(context_));
-            tmp->SetSize(LIGHTMAP_OUTPUT_WIDTH, LIGHTMAP_OUTPUT_HEIGHT, 3);
-            // optimize, this is a pretty slow resample about 1 sec for 4096 -> 2048
-            // also, this is a bilinear downscale, better downsample filter to use?
-            tmp->SetSubimage(lightmap->GetImage(), IntRect(0, 0, LIGHTMAP_OUTPUT_WIDTH, LIGHTMAP_OUTPUT_HEIGHT));
-            tmp->SavePNG(filename);
-            // ATOMIC_LOGINFOF("Image resample took %u ms", t.GetMSec(false));
-        }
-        else
-        {
-            lightmap->GetImage()->SavePNG(filename);
-        }
+        lightmap->GetImage()->SavePNG(filename);
 
     }
 

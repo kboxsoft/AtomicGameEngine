@@ -21,43 +21,36 @@
 
 #pragma once
 
-#include <Atomic/Core/Object.h>
+#include <Atomic/Resource/Image.h>
 
-namespace Atomic
-{
-
-class Image;
-
-}
 
 namespace AtomicGlow
 {
 
+class BakeMesh;
+
 using namespace Atomic;
 
-const int LIGHTMAP_WIDTH = 2048;
-const int LIGHTMAP_HEIGHT = 2048;
-
-class LightMap : public Object
+class RadianceMap : public Object
 {
-    ATOMIC_OBJECT(LightMap, Object)
+    ATOMIC_OBJECT(RadianceMap, Object)
 
     public:
 
-    LightMap(Context* context, int width = LIGHTMAP_WIDTH, int height = LIGHTMAP_HEIGHT);
-    virtual ~LightMap();
+    RadianceMap(Context* context, BakeMesh* bakeMesh);
+    virtual ~RadianceMap();
 
-    unsigned GetID() const { return id_; }
-    void SetID(unsigned id) { id_ = id; }
+    int GetWidth() const { return image_.Null() ? 0 : image_->GetWidth(); }
+    int GetHeight() const { return image_.Null() ? 0 : image_->GetHeight(); }
 
-    Image* GetImage() const { return image_; }
-    void SetImage(Image* image) { image_ = image; }
+    SharedPtr<BakeMesh> bakeMesh_;
+    SharedPtr<Image> image_;
+    bool packed_;
 
 private:
 
-    unsigned id_;
-
-    SharedPtr<Image> image_;
+    void Blur();
+    bool Downsample();
 
 };
 

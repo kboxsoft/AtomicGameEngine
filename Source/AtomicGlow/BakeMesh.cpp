@@ -28,21 +28,11 @@
 #include "Raster.h"
 #include "LightRay.h"
 #include "SceneBaker.h"
+#include "RadianceMap.h"
 #include "BakeMesh.h"
 
 namespace AtomicGlow
 {
-
-RadianceMap::RadianceMap(Context* context) : Object(context),
-    packed_(false)
-{
-
-}
-
-RadianceMap::~RadianceMap()
-{
-
-}
 
 BakeMesh::BakeMesh(Context* context, SceneBaker *sceneBaker) : BakeNode(context, sceneBaker),
     numVertices_(0),
@@ -50,7 +40,8 @@ BakeMesh::BakeMesh(Context* context, SceneBaker *sceneBaker) : BakeNode(context,
     radianceHeight_(0),
     radianceWidth_(0),
     embreeGeomID_(RTC_INVALID_GEOMETRY_ID),
-    numWorkItems_(0)
+    numWorkItems_(0),
+    ambientColor_(Color::BLACK)
 {
 
 }
@@ -109,6 +100,16 @@ bool BakeMesh::LightPixel(BakeMesh::ShaderData* shaderData, int x, int y, const 
 
     sample.bakeMesh = this;
 
+    // TODO: mode?
+    bool visualizeTris = false;
+
+    if (visualizeTris)
+    {
+        float c = float(shaderData->triangleIdx_) / float(numTriangles_);
+        ContributeRadiance(x, y, Vector3(c, c, c));
+        return true;
+    }
+
     sample.triangle = shaderData->triangleIdx_;
 
     sample.radianceX = x;
@@ -155,12 +156,32 @@ void BakeMesh::LightTrianglesWork(const WorkItem* item, unsigned threadIndex)
 
         start++;
 
+        Vector2 center;
+
         for (unsigned j = 0; j < 3; j++)
         {
             unsigned idx = tri->indices_[j];
+            Vector2 uv1 = bakeMesh->vertices_[idx].uv1_;
+            uv1.x_ *= float(bakeMesh->radianceWidth_);
+            uv1.y_ *= float(bakeMesh->radianceHeight_);
+            center += uv1;
+        }
+
+        center /= 3.0f;
+
+        for (unsigned j = 0; j < 3; j++)
+        {
+            unsigned idx = tri->indices_[j];
+
             triUV1[j] = bakeMesh->vertices_[idx].uv1_;
             triUV1[j].x_ *= float(bakeMesh->radianceWidth_);
             triUV1[j].y_ *= float(bakeMesh->radianceHeight_);
+
+            triUV1[j].x_ = triUV1[j].x_ - center.x_ < 0.0f ? Floor<float>(triUV1[j].x_) : Ceil<float>(triUV1[j].x_);
+            triUV1[j].y_ = triUV1[j].y_ - center.y_ < 0.0f ? Floor<float>(triUV1[j].y_) : Ceil<float>(triUV1[j].y_);
+
+            triUV1[j].x_ = Clamp<float>(triUV1[j].x_, 0.0f, bakeMesh->radianceWidth_);
+            triUV1[j].y_ = Clamp<float>(triUV1[j].y_, 0.0f, bakeMesh->radianceHeight_);
         }
 
         Raster::DrawTriangle(true, extents, false, triUV1, FillLexelsCallback, &shaderData );
@@ -249,127 +270,14 @@ void BakeMesh::FillInvalidRadiance(int bleedRadius)
     }
 }
 
-void BakeMesh::FloodRadianceMap()
-{
-    for (int y = 0; y < radianceHeight_; y++)
-    {
-        for (int x = 0; x < radianceWidth_; x++)
-        {
-            Vector3 rad = radiance_[y * radianceWidth_ + x];
-
-            if (rad.x_ < 0.0f)
-            {
-                rad = Vector3::ZERO;
-                int numSamples = 0;
-
-                int area = 3;
-
-                for (int i = y - area; i <= y + area; i++ )
-                {
-                    for (int j = x - area; j <= x + area; j++ )
-                    {
-                        if (i == y || j == x)
-                            continue;
-
-                        if (i < 0 || i >= radianceHeight_)
-                            continue;
-
-                        if (j < 0 || j >= radianceWidth_)
-                            continue;
-
-                        const Vector3& rad2 = radiance_[i * radianceWidth_ + j];
-
-                        if (rad2.x_ < 0.0f)
-                            continue;
-
-                        rad += rad2;
-                        numSamples++;
-                    }
-                }
-
-                if (numSamples)
-                {
-                    rad /= numSamples;
-                    radiance_[y * radianceWidth_ + x] = rad;
-                }
-
-            }
-        }
-    }
-}
-
 void BakeMesh::GenerateRadianceMap()
 {
     if (radianceMap_.NotNull())
         return;
 
     FillInvalidRadiance(3);
-    //FloodRadianceMap();
 
-    radianceMap_ = new RadianceMap(context_);
-
-    SharedPtr<Image> image (new Image(context_));
-
-    radianceMap_->bakeMesh_ = SharedPtr<BakeMesh>(this);
-    radianceMap_->image_ = image;
-
-    image->SetSize(radianceWidth_, radianceHeight_, 3);
-    image->Clear(Color::BLACK);
-
-    Color c;
-    for (unsigned y = 0; y < radianceHeight_; y++)
-    {
-        for (unsigned x = 0; x < radianceWidth_; x++)
-        {
-            const Vector3& rad = radiance_[y * radianceWidth_ + x];
-
-            if (rad.x_ >= 0.0f)
-            {
-                Vector3 r = rad;
-
-                if (r.Length() > 3.0f)
-                {
-                    r.Normalize();
-                    r *= 3.0f;
-                }
-
-                c.r_ = r.x_; //Min<float>(rad.x_, 1.0f);
-                c.g_ = r.y_;// Min<float>(rad.y_, 1.0f);
-                c.b_ = r.z_;// Min<float>(rad.z_, 1.0f);
-                image->SetPixel(x, y, c);
-            }
-        }
-    }
-
-    // Dilate the image by 2 pixels to allow bilinear texturing near seams.
-    // Note that this still allows seams when mipmapping, unless mipmap levels
-    // are generated very carefully.
-
-    SharedArrayPtr<Color> tmp(new Color[radianceWidth_ * radianceHeight_]);
-
-    Color ambient = Color::BLACK;
-
-    if (staticModel_ && staticModel_->GetZone())
-    {
-        ambient = staticModel_->GetZone()->GetAmbientColor();
-    }
-
-    // TODO: add this as a config option?
-    bool useDebugFillColor = false;
-
-    if (ambient != Color::BLACK || useDebugFillColor)
-    {
-        for (int y = 0; y < radianceHeight_ ; y++)
-        {
-            for (int x = 0; x < radianceWidth_; x++)
-            {
-                if (radiance_[y * radianceWidth_ + x].x_ < 0.0f || image->GetPixel(x, y) == Color::BLACK)
-                    image->SetPixel(x, y, useDebugFillColor ? Color::MAGENTA : ambient);
-
-            }
-        }
-    }
-
+    radianceMap_ = new RadianceMap(context_, this);
 }
 
 void BakeMesh::HandleLightTrianglesWorkCompleted(StringHash eventType, VariantMap& eventData)
@@ -466,6 +374,11 @@ void BakeMesh::Preprocess()
 {
 
     RTCScene scene = sceneBaker_->GetEmbreeScene()->GetRTCScene();
+
+    if (staticModel_ && staticModel_->GetZone())
+    {
+        ambientColor_ = staticModel_->GetZone()->GetAmbientColor();
+    }
 
     if (staticModel_ && staticModel_->GetCastShadows())
     {

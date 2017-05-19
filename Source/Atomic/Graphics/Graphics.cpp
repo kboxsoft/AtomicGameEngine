@@ -446,9 +446,11 @@ static PODVector<Texture2D*> lightmapTextures;
 void Graphics::SetLightmapTexture(unsigned id)
 {
     const unsigned numLightmaps = 25;
+    static bool initialized = false;
 
-    if (!lightmapTextures.Size())
+    if (!lightmapTextures.Size() && !initialized)
     {
+        initialized = true;
 
         ResourceCache* cache = GetSubsystem<ResourceCache>();
 
