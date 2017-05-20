@@ -128,9 +128,6 @@ private:
     bool LightPixel(ShaderData* shaderData, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage);
     bool LightSample(MMSample* sample);
 
-    void BuildSearchPattern(int searchSize, Vector<Pair<int, int>>& searchPattern);
-    void FillInvalidRadiance(int bleedRadius);
-
     void GenerateRadianceMap();
 
     // mesh geometry, in world space

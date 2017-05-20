@@ -461,6 +461,10 @@ void Graphics::SetLightmapTexture(unsigned id)
             if (!texture)
                 break;
 
+
+            // FILTER_NEAREST is good for testing lightmap, without bilinear artifacts
+            //texture->SetFilterMode(FILTER_NEAREST);
+
             texture->SetAddressMode(COORD_U, ADDRESS_CLAMP);
             texture->SetAddressMode(COORD_V, ADDRESS_CLAMP);
 

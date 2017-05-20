@@ -177,8 +177,8 @@ void BakeMesh::LightTrianglesWork(const WorkItem* item, unsigned threadIndex)
             triUV1[j].x_ *= float(bakeMesh->radianceWidth_);
             triUV1[j].y_ *= float(bakeMesh->radianceHeight_);
 
-            triUV1[j].x_ = triUV1[j].x_ - center.x_ < 0.0f ? Floor<float>(triUV1[j].x_) : Ceil<float>(triUV1[j].x_);
-            triUV1[j].y_ = triUV1[j].y_ - center.y_ < 0.0f ? Floor<float>(triUV1[j].y_) : Ceil<float>(triUV1[j].y_);
+            //triUV1[j].x_ = triUV1[j].x_ - center.x_ < 0.0f ? Floor<float>(triUV1[j].x_) : Ceil<float>(triUV1[j].x_);
+            //triUV1[j].y_ = triUV1[j].y_ - center.y_ < 0.0f ? Floor<float>(triUV1[j].y_) : Ceil<float>(triUV1[j].y_);
 
             triUV1[j].x_ = Clamp<float>(triUV1[j].x_, 0.0f, bakeMesh->radianceWidth_);
             triUV1[j].y_ = Clamp<float>(triUV1[j].y_, 0.0f, bakeMesh->radianceHeight_);
@@ -208,74 +208,10 @@ void BakeMesh::ContributeRadiance(int x, int y, const Vector3& radiance)
 
 }
 
-struct CoordDistanceComparer
-{
-    bool operator() (Pair<int, int> &left, Pair<int, int> &right)
-    {
-        return (left.first_*left.first_ + left.second_*left.second_) <
-            (right.first_*right.first_ + right.second_*right.second_);
-    }
-};
-
-void BakeMesh::BuildSearchPattern(int searchSize, Vector<Pair<int, int>>& searchPattern)
-{
-    searchPattern.Clear();
-    for (int i = -searchSize; i <= searchSize; ++i)
-    {
-        for (int j = -searchSize; j <= searchSize; ++j)
-        {
-            if (i == 0 && j == 0)
-                continue;
-            searchPattern.Push(Pair<int, int>(i, j));
-        }
-    }
-    CoordDistanceComparer comparer;
-    Sort(searchPattern.Begin(), searchPattern.End(), comparer);
-}
-
-void BakeMesh::FillInvalidRadiance(int bleedRadius)
-{
-    Vector<Pair<int, int>> searchPattern;
-    BuildSearchPattern(bleedRadius, searchPattern);
-
-    Vector<Pair<int, int> >::Iterator iter;
-
-    for (int i = 0; i < radianceWidth_; ++i)
-    {
-        for (int j = 0; j < radianceHeight_; ++j)
-        {
-            if (radiance_[j * radianceHeight_ + i].x_ >= 0.0f)
-                continue;
-
-            // Invalid pixel found
-            for (iter = searchPattern.Begin(); iter != searchPattern.End(); ++iter)
-            {
-                int x = i + iter->first_;
-                int y = j + iter->second_;
-
-                if (x < 0 || x >= radianceWidth_)
-                    continue;
-
-                if (y < 0 || y >= radianceHeight_)
-                    continue;
-
-                // If search pixel is valid assign it to the invalid pixel and stop searching
-                if (radiance_[y * radianceWidth_ + x].x_ >= 0.0f)
-                {
-                    radiance_[j * radianceHeight_ + i] = radiance_[y * radianceWidth_ + x];
-                    break;
-                }
-            }
-        }
-    }
-}
-
 void BakeMesh::GenerateRadianceMap()
 {
     if (radianceMap_.NotNull())
         return;
-
-    FillInvalidRadiance(3);
 
     radianceMap_ = new RadianceMap(context_, this);
 }

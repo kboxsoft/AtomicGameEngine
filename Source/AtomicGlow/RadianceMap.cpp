@@ -14,16 +14,7 @@ RadianceMap::RadianceMap(Context* context, BakeMesh* bakeMesh) : Object(context)
 
     image_->SetSize(bakeMesh->radianceWidth_, bakeMesh->radianceHeight_, 3);
 
-    Color ambient = bakeMesh->GetAmbientColor();
-
-    bool useDebugFillColor = false;
-
-    if (useDebugFillColor)
-    {
-        ambient = Color::MAGENTA;
-    }
-
-    image_->Clear(ambient);
+    image_->Clear(Color::MAGENTA);
 
     Color c;
     for (unsigned y = 0; y < bakeMesh->radianceHeight_; y++)
@@ -51,10 +42,92 @@ RadianceMap::RadianceMap(Context* context, BakeMesh* bakeMesh) : Object(context)
         }
     }
 
-    Blur();
-    Downsample();
+    // We need to add per radiance pixel/tri information so don't
+    // consider other tri radiance when blurring, etc otherwise
+    // introduces artifacts
+    //Blur();
+    //Downsample();
+    //FillInvalidRadiance(3);
 
 }
+
+struct CoordDistanceComparer
+{
+    bool operator() (Pair<int, int> &left, Pair<int, int> &right)
+    {
+        return (left.first_*left.first_ + left.second_*left.second_) <
+            (right.first_*right.first_ + right.second_*right.second_);
+    }
+};
+
+void RadianceMap::BuildSearchPattern(int searchSize, Vector<Pair<int, int>>& searchPattern)
+{
+    searchPattern.Clear();
+    for (int i = -searchSize; i <= searchSize; ++i)
+    {
+        for (int j = -searchSize; j <= searchSize; ++j)
+        {
+            if (i == 0 && j == 0)
+                continue;
+            searchPattern.Push(Pair<int, int>(i, j));
+        }
+    }
+    CoordDistanceComparer comparer;
+    Sort(searchPattern.Begin(), searchPattern.End(), comparer);
+}
+
+void RadianceMap::FillInvalidRadiance(int bleedRadius)
+{
+    Vector<Pair<int, int>> searchPattern;
+    BuildSearchPattern(bleedRadius, searchPattern);
+
+    Vector<Pair<int, int> >::Iterator iter;
+
+    int width = image_->GetWidth();
+    int height = image_->GetHeight();
+
+    SharedPtr<Image> target(new Image(context_));
+    target->SetSize(width, height, 3);
+    target->Clear(Color::BLACK);
+
+    for (int i = 0; i < width; ++i)
+    {
+        for (int j = 0; j < height; ++j)
+        {
+            Color c = image_->GetPixel(i, j);
+
+            if ( c != Color::MAGENTA)
+            {
+                target->SetPixel(i, j, c);
+                continue;
+            }
+
+            // Invalid pixel found
+            for (iter = searchPattern.Begin(); iter != searchPattern.End(); ++iter)
+            {
+                int x = i + iter->first_;
+                int y = j + iter->second_;
+
+                if (x < 0 || x >= width)
+                    continue;
+
+                if (y < 0 || y >= width)
+                    continue;
+
+                // If search pixel is valid assign it to the invalid pixel and stop searching
+                c = image_->GetPixel(x, y);
+                if (c != Color::MAGENTA)
+                {
+                    target->SetPixel(x, y, c);
+                    break;
+                }
+            }
+        }
+    }
+
+    image_->SetData(target->GetData());
+}
+
 
 void RadianceMap::Blur()
 {
@@ -111,25 +184,57 @@ void RadianceMap::Blur()
     image_->SetData(target->GetData());
 }
 
-
 bool RadianceMap::Downsample()
 {
     // Simple average downsample gives nice results
 
     SharedPtr<Image> tmp(new Image(context_));
     tmp->SetSize(image_->GetWidth()/2, image_->GetHeight()/2, 3);
+    tmp->Clear(Color::BLACK);
 
     for (int y = 0; y < tmp->GetHeight(); y++)
     {
         for (int x = 0; x < tmp->GetWidth(); x++)
         {
-            Color c = image_->GetPixel(x * 2, y * 2);
-            c +=  image_->GetPixel(x * 2 + 1, y * 2);
-            c +=  image_->GetPixel(x * 2, y * 2 + 1);
-            c +=  image_->GetPixel(x * 2 + 1, y * 2 + 1);
-            c.r_ /= 4.0f;
-            c.g_ /= 4.0f;
-            c.b_ /= 4.0f;
+
+            int validColors = 0;
+
+            Color c = Color::BLACK;
+
+            Color tc = image_->GetPixel(x * 2, y * 2);
+            if (tc != Color::BLACK)
+            {
+                c += tc;
+                validColors++;
+            }
+
+            tc = image_->GetPixel(x * 2 + 1, y * 2);
+            if (tc != Color::BLACK)
+            {
+                c += tc;
+                validColors++;
+            }
+
+            tc = image_->GetPixel(x * 2, y * 2 + 1);
+            if (tc != Color::BLACK)
+            {
+                c += tc;
+                validColors++;
+            }
+
+            tc = image_->GetPixel(x * 2 + 1, y * 2 + 1);
+            if (tc != Color::BLACK)
+            {
+                c += tc;
+                validColors++;
+            }
+
+            if (!validColors)
+                continue;
+
+            c.r_ /= validColors;
+            c.g_ /= validColors;
+            c.b_ /= validColors;
             c.a_ = 1.0f;
             tmp->SetPixel(x, y, c);
         }

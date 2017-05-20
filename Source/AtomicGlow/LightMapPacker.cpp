@@ -73,15 +73,15 @@ bool LightMapPacker::TryAddRadianceMap(RadianceMap* radMap)
         RadianceMap* wmap = workingSet_[i];
 
         rect->id = (int) i;
-        rect->w = wmap->GetWidth();
-        rect->h = wmap->GetHeight();
+        rect->w = wmap->GetWidth() + 4;
+        rect->h = wmap->GetHeight() + 4;
 
         rect++;
     }
 
     rect->id = (int) workingSet_.Size();
-    rect->w = radMap->GetWidth();
-    rect->h = radMap->GetHeight();
+    rect->w = radMap->GetWidth() + 4;
+    rect->h = radMap->GetHeight() + 4;
 
 
     if (!stbrp_pack_rects (&rectContext, (stbrp_rect *)rects.Get(), workingSet_.Size() + 1))
@@ -115,8 +115,8 @@ void LightMapPacker::EmitLightmap(unsigned lightMapID)
         RadianceMap* radMap = workingSet_[i];
 
         rect->id = (int) i;
-        rect->w = radMap->GetWidth();
-        rect->h = radMap->GetHeight();
+        rect->w = radMap->GetWidth() + 4;
+        rect->h = radMap->GetHeight() + 4;
 
         rect++;
     }
@@ -129,11 +129,9 @@ void LightMapPacker::EmitLightmap(unsigned lightMapID)
 
     SharedPtr<Image> image(new Image(context_));
     image->SetSize(width, height, 3);
-    image->Clear(Color::BLACK);
+    image->Clear(Color::CYAN);
 
     rect = (stbrp_rect*) rects.Get();
-
-    Color ambient = Color::BLACK;
 
     for (unsigned i = 0; i < workingSet_.Size(); i++)
     {
@@ -145,43 +143,26 @@ void LightMapPacker::EmitLightmap(unsigned lightMapID)
             continue;
         }
 
-        image->SetSubimage(radMap->image_, IntRect(rect->x, rect->y, rect->x + radMap->image_->GetWidth(), rect->y + radMap->image_->GetHeight()));
+        int radw = radMap->image_->GetWidth();
+        int radh = radMap->image_->GetHeight();
+
+        unsigned char* src = radMap->image_->GetData();
+        unsigned char* dest = image->GetData() + ((rect->y + 2) * width + rect->x + 2) * 3;
+
+        for (int i = 0; i < radh; ++i)
+        {
+            memcpy(dest, src, radw * 3);
+            src += radw * 3;
+            dest += width * 3;
+        }
 
         radMap->bakeMesh_->Pack(lightMapID, Vector4(float(radMap->image_->GetWidth())/float(width),
                                                     float(radMap->image_->GetHeight())/float(height),
-                                                    float(rect->x)/float(width),
-                                                    float(rect->y)/float(height)));
-
-        if (ambient == Color::BLACK)
-        {
-            // TODO, different zone ambients?
-            ambient = radMap->bakeMesh_->GetAmbientColor();
-        }
+                                                    float(rect->x + 2)/float(width),
+                                                    float(rect->y + 2)/float(height)));
 
         rect++;
     }    
-
-    // TODO: add this as a config option?
-    bool useDebugFillColor = false;
-
-    if (useDebugFillColor)
-    {
-        ambient = Color::MAGENTA;
-    }
-
-    if (ambient != Color::BLACK)
-    {
-        for (int y = 0; y < image->GetHeight() ; y++)
-        {
-            for (int x = 0; x < image->GetWidth(); x++)
-            {
-                if (image->GetPixel(x, y) == Color::BLACK)
-                {
-                    image->SetPixel(x, y, ambient);
-                }
-            }
-        }
-    }
 
     SharedPtr<LightMap> lightmap(new LightMap(context_));
     lightMaps_.Push(lightmap);
