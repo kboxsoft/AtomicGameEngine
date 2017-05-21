@@ -62,7 +62,7 @@ void ZoneBakeLight::Light(LightRay* lightRay)
 
     // TODO: AO using ray packets/streams
 
-    source.bakeMesh->ContributeRadiance(source.radianceX, source.radianceY, Vector3(color.r_, color.g_, color.b_));
+    source.bakeMesh->ContributeRadiance(lightRay, Vector3(color.r_, color.g_, color.b_));
 }
 
 void ZoneBakeLight::SetZone(Zone* zone)
@@ -107,7 +107,7 @@ void DirectionalBakeLight::Light(LightRay* lightRay)
 
     rad*=angle;
 
-    source.bakeMesh->ContributeRadiance(source.radianceX, source.radianceY, rad);
+    source.bakeMesh->ContributeRadiance(lightRay, rad);
 
 }
 
@@ -167,7 +167,7 @@ void PointBakeLight::Light(LightRay* lightRay)
     rad *= dot;
 
     if (rad.Length() > M_EPSILON)
-        source.bakeMesh->ContributeRadiance(source.radianceX, source.radianceY, rad);
+        source.bakeMesh->ContributeRadiance(lightRay, rad);
 
 }
 

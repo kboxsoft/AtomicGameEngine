@@ -7,125 +7,123 @@ namespace AtomicGlow
 {
 
 RadianceMap::RadianceMap(Context* context, BakeMesh* bakeMesh) : Object(context),
-    bakeMesh_(bakeMesh),
-    image_(new Image(context_)),
+    bakeMesh_(bakeMesh),    
     packed_(false)
 {
+    int width = bakeMesh->GetRadianceWidth();
+    int height = bakeMesh->GetRadianceHeight();
 
-    image_->SetSize(bakeMesh->radianceWidth_, bakeMesh->radianceHeight_, 3);
+    image_ = new Image(context_);
+    image_->SetSize(width, height, 2, 3);
 
-    image_->Clear(Color::MAGENTA);
-
+    Vector3 rad;
+    int triIndex;
     Color c;
-    for (unsigned y = 0; y < bakeMesh->radianceHeight_; y++)
-    {
-        for (unsigned x = 0; x < bakeMesh->radianceWidth_; x++)
-        {
-            const Vector3& rad = bakeMesh->radiance_[y * bakeMesh->radianceWidth_ + x];
 
-            if (rad.x_ >= 0.0f)
+    for (unsigned y = 0; y <height; y++)
+    {
+        for (unsigned x = 0; x < width; x++)
+        {
+            if (!bakeMesh->GetRadiance(x, y, rad, triIndex))
             {
-                Vector3 r = rad;
-
-                if (r.Length() > 3.0f)
-                {
-                    r.Normalize();
-                    r *= 3.0f;
-                }
-
-                c.r_ = r.x_;
-                c.g_ = r.y_;
-                c.b_ = r.z_;
-
-                image_->SetPixel(x, y, c);
-            }
-        }
-    }
-
-    // We need to add per radiance pixel/tri information so don't
-    // consider other tri radiance when blurring, etc otherwise
-    // introduces artifacts
-    //Blur();
-    //Downsample();
-    //FillInvalidRadiance(3);
-
-}
-
-struct CoordDistanceComparer
-{
-    bool operator() (Pair<int, int> &left, Pair<int, int> &right)
-    {
-        return (left.first_*left.first_ + left.second_*left.second_) <
-            (right.first_*right.first_ + right.second_*right.second_);
-    }
-};
-
-void RadianceMap::BuildSearchPattern(int searchSize, Vector<Pair<int, int>>& searchPattern)
-{
-    searchPattern.Clear();
-    for (int i = -searchSize; i <= searchSize; ++i)
-    {
-        for (int j = -searchSize; j <= searchSize; ++j)
-        {
-            if (i == 0 && j == 0)
+                image_->SetPixel(x, y, 0, Color::MAGENTA);
+                image_->SetPixel(x, y, 1, Color::BLACK);
                 continue;
-            searchPattern.Push(Pair<int, int>(i, j));
+            }
+
+            if (rad.Length() > 3.0f)
+            {
+                rad.Normalize();
+                rad *= 3.0f;
+            }
+
+            c.r_ = rad.x_;
+            c.g_ = rad.y_;
+            c.b_ = rad.z_;
+
+            image_->SetPixel(x, y, c);
+            // mark as a valid pixel
+            image_->SetPixel(x, y, 1, Color::RED);
         }
     }
-    CoordDistanceComparer comparer;
-    Sort(searchPattern.Begin(), searchPattern.End(), comparer);
+
+
+    const int maxDist = 7;
+    int d = 1;
+    while (FillInvalidPixels(d) && d <= maxDist)
+    {
+        d++;
+    }
+
+    Blur();
+
+    //Downsample();
+
 }
 
-void RadianceMap::FillInvalidRadiance(int bleedRadius)
+bool RadianceMap::CheckValidPixel(int x, int y, Color &color)
 {
-    Vector<Pair<int, int>> searchPattern;
-    BuildSearchPattern(bleedRadius, searchPattern);
 
-    Vector<Pair<int, int> >::Iterator iter;
+    if (x < 0 || x >= image_->GetWidth())
+        return false;
+
+    if (y < 0 || y >= image_->GetHeight())
+        return false;
+
+    color = image_->GetPixel(x, y, 1);
+
+    if (color == Color::BLACK)
+        return false;
+
+    color = image_->GetPixel(x, y, 0);
+
+    return true;
+}
+
+bool RadianceMap::FillInvalidPixels(int searchDistance)
+{
+    bool result = false;
+
+    PODVector<Vector2> coords;
+
+    // left
+    coords.Push(Vector2(-searchDistance, 0));
+    // right
+    coords.Push(Vector2(searchDistance, 0));
+
+    // down
+    coords.Push(Vector2(0, searchDistance));
+    // up
+    coords.Push(Vector2(0, -searchDistance));
 
     int width = image_->GetWidth();
     int height = image_->GetHeight();
 
-    SharedPtr<Image> target(new Image(context_));
-    target->SetSize(width, height, 3);
-    target->Clear(Color::BLACK);
-
-    for (int i = 0; i < width; ++i)
+    for (int x = 0; x < width; x++)
     {
-        for (int j = 0; j < height; ++j)
+        for (int y = 0; y < height; y++)
         {
-            Color c = image_->GetPixel(i, j);
-
-            if ( c != Color::MAGENTA)
+            Color c;
+            if (!CheckValidPixel(x, y , c))
             {
-                target->SetPixel(i, j, c);
-                continue;
-            }
-
-            // Invalid pixel found
-            for (iter = searchPattern.Begin(); iter != searchPattern.End(); ++iter)
-            {
-                int x = i + iter->first_;
-                int y = j + iter->second_;
-
-                if (x < 0 || x >= width)
-                    continue;
-
-                if (y < 0 || y >= width)
-                    continue;
-
-                // If search pixel is valid assign it to the invalid pixel and stop searching
-                c = image_->GetPixel(x, y);
-                if (c != Color::MAGENTA)
+                // we have an unitialized pixel, search for an initialized neighbor
+                for (unsigned i = 0; i< coords.Size(); i++)
                 {
-                    target->SetPixel(x, y, c);
-                    break;
+                    const Vector2& coord = coords[i];
+
+                    if (CheckValidPixel(x + coord.x_, y + coord.y_, c))
+                    {
+                        result = true;
+                        image_->SetPixel(x, y, c);
+                        image_->SetPixel(x, y, 1, Color::RED);
+                        break;
+                    }
                 }
             }
         }
     }
 
-    image_->SetData(target->GetData());
+    return result;
 }
 
 
@@ -135,7 +133,8 @@ void RadianceMap::Blur()
     int height = image_->GetHeight();
 
     SharedPtr<Image> target(new Image(context_));
-    target->SetSize(width, height, 3);
+    target->SetSize(width, height, 2, 3);
+    target->SetData(image_->GetData());
 
     Color color;
     float validPixels;
@@ -144,8 +143,17 @@ void RadianceMap::Blur()
     {
         for (int j = 0; j < height; ++j)
         {
-            if (image_->GetPixel(i, j) == Color::BLACK)
+            if (!CheckValidPixel(i, j, color))
                 continue;
+
+            Vector3 rad;
+            int srcTriIndex;
+
+            if (!bakeMesh_->GetRadiance(i, j, rad, srcTriIndex))
+            {
+                // this shouldn't happen
+                continue;
+            }
 
             color = Color::BLACK;
             validPixels = 0;
@@ -167,10 +175,15 @@ void RadianceMap::Blur()
             {
                 for (int l = minL - 1; l < maxL; ++l)
                 {
-                    if (image_->GetPixel(k, l) == Color::BLACK)
+                    Color c;
+                    if (!CheckValidPixel(k, l, c))
                         continue;
 
-                    color += image_->GetPixel(k, l);
+                    int tindex;
+                    if (!bakeMesh_->GetRadiance(k, l, rad, tindex) || tindex != srcTriIndex)
+                        continue;
+
+                    color += c;
                     ++validPixels;
                 }
             }

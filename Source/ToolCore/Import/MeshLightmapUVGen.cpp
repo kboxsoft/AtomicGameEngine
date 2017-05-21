@@ -92,23 +92,41 @@ void MeshLightmapUVGen::WriteLightmapUVCoords()
         PODVector<MPVertex>& verts = geoVerts[geometryIdx];
         PODVector<unsigned>& indices = geoIndices[geometryIdx];
 
+        unsigned ovindices[3];
+        Vector2 uvs[3];
+
+        uvs[0] = Vector2(tv0.uv[0], tv0.uv[1]);
+        uvs[1] = Vector2(tv1.uv[0], tv1.uv[1]);
+        uvs[2] = Vector2(tv2.uv[0], tv2.uv[1]);
+
+        ovindices[0] = lv0.originalVertex_;
+        ovindices[1] = lv1.originalVertex_;
+        ovindices[2] = lv2.originalVertex_;
+
+        Vector2 center(uvs[0]);
+        center += uvs[1];
+        center += uvs[2];
+        center /= 3.0f;
+
         unsigned index;
+        for (unsigned j = 0; j < 3; j++)
+        {
+            Vector2 uv = uvs[j];
+            uv -= center;
+            uv *= 0.98f;
+            uv += center;
 
-        MPVertex mpv = mpGeo->vertices_[lv0.originalVertex_];
-        mpv.uv1_ = Vector2(tv0.uv[0] * uscale,  tv0.uv[1] * vscale);
-        EmitVertex(verts, index, mpv);
-        indices.Push(index);
+            uv.x_ = Clamp<float>(uv.x_, 2, tOutputMesh_->atlas_width - 2);
+            uv.y_ = Clamp<float>(uv.y_, 2, tOutputMesh_->atlas_height - 2);
 
-        mpv = mpGeo->vertices_[lv1.originalVertex_];
-        mpv.uv1_ = Vector2(tv1.uv[0] * uscale,  tv1.uv[1] * vscale);
-        EmitVertex(verts, index, mpv);
-        indices.Push(index);
+            uv.x_ *= uscale;
+            uv.y_ *= vscale;
 
-        mpv = mpGeo->vertices_[lv2.originalVertex_];
-        mpv.uv1_ = Vector2(tv2.uv[0] * uscale,  tv2.uv[1] * vscale);
-        EmitVertex(verts, index, mpv);
-        indices.Push(index);
-
+            MPVertex mpv = mpGeo->vertices_[ovindices[j]];
+            mpv.uv1_ = uv;
+            EmitVertex(verts, index, mpv);
+            indices.Push(index);
+        }
     }
 
     for (unsigned i = 0; i < curLOD_->mpGeometry_.Size(); i++)

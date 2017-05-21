@@ -49,9 +49,8 @@ class RadianceMap : public Object
 
 private:
 
-    void BuildSearchPattern(int searchSize, Vector<Pair<int, int>>& searchPattern);
-    void FillInvalidRadiance(int bleedRadius);
-
+    bool CheckValidPixel(int x, int y, Color& color);
+    bool FillInvalidPixels(int searchDistance = 1);
     void Blur();
     bool Downsample();
 

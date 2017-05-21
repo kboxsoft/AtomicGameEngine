@@ -100,16 +100,6 @@ bool BakeMesh::LightPixel(BakeMesh::ShaderData* shaderData, int x, int y, const 
 
     sample.bakeMesh = this;
 
-    // TODO: mode?
-    bool visualizeTris = false;
-
-    if (visualizeTris)
-    {
-        float c = float(shaderData->triangleIdx_) / float(numTriangles_);
-        ContributeRadiance(x, y, Vector3(c, c, c));
-        return true;
-    }
-
     sample.triangle = shaderData->triangleIdx_;
 
     sample.radianceX = x;
@@ -130,6 +120,17 @@ bool BakeMesh::LightPixel(BakeMesh::ShaderData* shaderData, int x, int y, const 
     sample.uv1  = verts[0]->uv1_ * barycentric.x_ +
                   verts[1]->uv1_ * barycentric.y_ +
                   verts[2]->uv1_ * barycentric.z_;
+
+
+    // TODO: mode?
+    bool visualizeTris = false;
+
+    if (visualizeTris)
+    {
+        float c = float(shaderData->triangleIdx_) / float(numTriangles_);
+        ContributeRadiance(&ray, Vector3(c, c, c));
+        return true;
+    }
 
     sceneBaker_->TraceRay(&ray, bakeLights_);
 
@@ -177,8 +178,11 @@ void BakeMesh::LightTrianglesWork(const WorkItem* item, unsigned threadIndex)
             triUV1[j].x_ *= float(bakeMesh->radianceWidth_);
             triUV1[j].y_ *= float(bakeMesh->radianceHeight_);
 
-            //triUV1[j].x_ = triUV1[j].x_ - center.x_ < 0.0f ? Floor<float>(triUV1[j].x_) : Ceil<float>(triUV1[j].x_);
-            //triUV1[j].y_ = triUV1[j].y_ - center.y_ < 0.0f ? Floor<float>(triUV1[j].y_) : Ceil<float>(triUV1[j].y_);
+            //triUV1[j].x_ = triUV1[j].x_ - center.x_ < 0.0f ? Ceil<float>(triUV1[j].x_) : Floor<float>(triUV1[j].x_);
+            //triUV1[j].y_ = triUV1[j].y_ - center.y_ < 0.0f ? Ceil<float>(triUV1[j].y_) : Floor<float>(triUV1[j].y_);
+
+            //triUV1[j].x_ = Floor<float>(triUV1[j].x_ + 0.5f);
+            //triUV1[j].y_ = Floor<float>(triUV1[j].y_ + 0.5f);
 
             triUV1[j].x_ = Clamp<float>(triUV1[j].x_, 0.0f, bakeMesh->radianceWidth_);
             triUV1[j].y_ = Clamp<float>(triUV1[j].y_, 0.0f, bakeMesh->radianceHeight_);
@@ -191,19 +195,26 @@ void BakeMesh::LightTrianglesWork(const WorkItem* item, unsigned threadIndex)
 }
 
 
-void BakeMesh::ContributeRadiance(int x, int y, const Vector3& radiance)
+void BakeMesh::ContributeRadiance(const LightRay* lightRay, const Vector3& radiance)
 {
     MutexLock lock(meshMutex_);
 
-    const Vector3& v = radiance_[y * radianceWidth_ + x];
+    const LightRay::SamplePoint& source = lightRay->samplePoint_;
+
+    unsigned radX = source.radianceX;
+    unsigned radY = source.radianceY;
+
+    const Vector3& v = radiance_[radY * radianceWidth_ + radX];
+
+    radianceTriIndices_[radY * radianceWidth_ + radX]  = source.triangle;
 
     if (v.x_ < 0.0f)
     {
-        radiance_[y * radianceWidth_ + x] = radiance;
+        radiance_[radY * radianceWidth_ + radX] = radiance;
     }
     else
     {
-        radiance_[y * radianceWidth_ + x] += radiance;
+        radiance_[radY * radianceWidth_ + radX] += radiance;
     }
 
 }
@@ -236,11 +247,13 @@ void BakeMesh::Light()
 
     // init radiance
     radiance_ = new Vector3[radianceWidth_ * radianceHeight_];
+    radianceTriIndices_ = new int[radianceWidth_ * radianceHeight_];
 
     Vector3 v(-1, -1, -1);
     for (unsigned i = 0; i < radianceWidth_ * radianceHeight_; i++)
     {
         radiance_[i] = v;
+        radianceTriIndices_[i] = -1;
     }
 
     WorkQueue* queue = GetSubsystem<WorkQueue>();
@@ -382,7 +395,7 @@ void BakeMesh::Preprocess()
         }
 
         // TODO: global light scale for quick bakes and super sampling mode
-        float globalScale = 1.0f;
+        float globalScale = 0.5f;
 
         if (globalScale < 0.1f)
             globalScale = 0.1f;

@@ -37,14 +37,13 @@ namespace AtomicGlow
 
 using namespace Atomic;
 
+class LightRay;
 class SceneBaker;
 class BakeLight;
 class BakeMesh;
 
 class BakeMesh : public BakeNode
 {
-    friend class RadianceMap;
-
     ATOMIC_OBJECT(BakeMesh, BakeNode)
 
     public:
@@ -99,7 +98,31 @@ class BakeMesh : public BakeNode
     // would like this to be runnable on own thread
     void Light();
 
-    void ContributeRadiance(int x, int y, const Vector3 &radiance);
+    void ContributeRadiance(const LightRay* lightRay, const Vector3 &radiance);
+
+    int GetRadianceWidth() const { return radianceWidth_; }
+    int GetRadianceHeight() const { return radianceHeight_; }
+
+    inline bool GetRadiance(int x, int y, Vector3& rad, int& triIndex) const
+    {
+        rad = Vector3::ZERO;
+        triIndex = -1;
+
+        if (x < 0 || x >= radianceWidth_)
+            return false;
+
+        if (y < 0 || y >= radianceHeight_)
+            return false;
+
+        rad = radiance_[y * radianceWidth_ + x];
+
+        triIndex = radianceTriIndices_[y * radianceWidth_ + x];
+
+        if (triIndex < 0 || rad.x_ < 0.0f)
+            return false;
+
+        return true;
+    }
 
     unsigned GetGeomID() const { return embreeGeomID_; }
 
@@ -152,6 +175,8 @@ private:
 
     // can be accessed from multiple threads
     SharedArrayPtr<Vector3> radiance_;
+    // radiance -> triangle contributor
+    SharedArrayPtr<int> radianceTriIndices_;
 
     unsigned radianceHeight_;
     unsigned radianceWidth_;

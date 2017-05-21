@@ -149,10 +149,48 @@ void LightMapPacker::EmitLightmap(unsigned lightMapID)
         unsigned char* src = radMap->image_->GetData();
         unsigned char* dest = image->GetData() + ((rect->y + 2) * width + rect->x + 2) * 3;
 
-        for (int i = 0; i < radh; ++i)
+        bool dilate = true;
+
+        if (dilate)
         {
+            dest = image->GetData() + ((rect->y) * width + rect->x + 2) * 3;
+
+            // duplicate rows
+            memcpy(dest, src, radw * 3);
+            dest += width * 3;
+            memcpy(dest, src, radw * 3);
+            dest += width * 3;
+        }
+
+        for (int j = 0; j < radh; j++)
+        {
+            if (dilate)
+            {
+                unsigned char* d2 = dest - 6;
+                memcpy(d2, src, 3);
+                d2+=3;
+                memcpy(d2, src, 3);
+
+                unsigned char* s2 = src + (radw - 2) * 3;
+                d2 = dest + radw * 3;
+                memcpy(d2, s2, 3);
+                d2+=3;
+                memcpy(d2, s2, 3);
+            }
+
             memcpy(dest, src, radw * 3);
             src += radw * 3;
+
+            dest += width * 3;
+        }
+
+
+        if (dilate)
+        {
+            src = radMap->image_->GetData() + ((radh - 1) * radw) * 3;
+            memcpy(dest, src, radw * 3);
+            dest += width * 3;
+            memcpy(dest, src, radw * 3);
             dest += width * 3;
         }
 
@@ -162,7 +200,17 @@ void LightMapPacker::EmitLightmap(unsigned lightMapID)
                                                     float(rect->y + 2)/float(height)));
 
         rect++;
-    }    
+    }
+
+    for (int i = 0; i < height; i++)
+    {
+        image->SetPixelInt(width -1, i, image->GetPixelInt(0, i));
+    }
+
+    for (int i = 0; i < width; i++)
+    {
+        image->SetPixelInt(i, height - 1, image->GetPixelInt(i, 0));
+    }
 
     SharedPtr<LightMap> lightmap(new LightMap(context_));
     lightMaps_.Push(lightmap);
@@ -183,7 +231,7 @@ void LightMapPacker::SaveLightmaps()
 #ifdef ATOMIC_PLATFORM_WINDOWS
         String filename = ToString("C:/Dev/atomic/AtomicExamplesPrivate/AtomicGlowTests/TestScene1/Resources/Textures/Scene_Lightmap%u.png", lightmap->GetID());
 #else
-        String filename = ToString("/Users/jenge/Dev/atomic/AtomicExamplesPrivate/AtomicGlowTests/TestScene1/Resources/Textures/Scene_Lightmap%u.png", lightmap->GetID());
+        String filename = ToString("/Users/jenge/Dev/atomic/AtomicExamplesPrivate/AtomicGlowTests/CornellBox/Resources/Textures/Scene_Lightmap%u.png", lightmap->GetID());
 #endif
 
         lightmap->GetImage()->SavePNG(filename);
