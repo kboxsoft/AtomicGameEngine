@@ -47,6 +47,8 @@ RadianceMap::RadianceMap(Context* context, BakeMesh* bakeMesh) : Object(context)
         }
     }
 
+    // blur before fill
+    Blur();
 
     const int maxDist = 7;
     int d = 1;
@@ -54,8 +56,6 @@ RadianceMap::RadianceMap(Context* context, BakeMesh* bakeMesh) : Object(context)
     {
         d++;
     }
-
-    Blur();
 
     //Downsample();
 
@@ -96,6 +96,12 @@ bool RadianceMap::FillInvalidPixels(int searchDistance)
     // up
     coords.Push(Vector2(0, -searchDistance));
 
+    coords.Push(Vector2(-searchDistance, -searchDistance));
+    coords.Push(Vector2(searchDistance, searchDistance));
+    coords.Push(Vector2(-searchDistance, searchDistance));
+    coords.Push(Vector2(searchDistance, -searchDistance));
+
+
     int width = image_->GetWidth();
     int height = image_->GetHeight();
 
@@ -104,6 +110,8 @@ bool RadianceMap::FillInvalidPixels(int searchDistance)
         for (int y = 0; y < height; y++)
         {
             Color c;
+            HashMap<int, PODVector<Color>> colors;
+
             if (!CheckValidPixel(x, y , c))
             {
                 // we have an unitialized pixel, search for an initialized neighbor
@@ -113,11 +121,69 @@ bool RadianceMap::FillInvalidPixels(int searchDistance)
 
                     if (CheckValidPixel(x + coord.x_, y + coord.y_, c))
                     {
-                        result = true;
-                        image_->SetPixel(x, y, c);
-                        image_->SetPixel(x, y, 1, Color::RED);
-                        break;
+                        Vector3 rad;
+                        int triIndex;
+
+                        bakeMesh_->GetRadiance(x + coord.x_, y + coord.y_, rad, triIndex);
+
+                        // triIndex can be -1, for a previously filled pixel
+                        colors[triIndex].Push(c);
                     }
+                }
+
+                if (colors.Size())
+                {
+                    result = true;
+
+                    HashMap<int, PODVector<Color>>::ConstIterator itr = colors.Begin();
+                    int bestTri = -2;
+                    int bestCount = 0;
+                    while (itr != colors.End())
+                    {
+                        // only consider the previous fill colors, if we don't have any
+                        // valid tri colors
+                        if (itr->first_ < 0)
+                        {
+                            itr++;
+                            continue;
+                        }
+
+                        if (itr->second_.Size() > bestCount)
+                        {
+                            bestCount = itr->second_.Size();
+                            bestTri = itr->first_;
+                        }
+
+                        itr++;
+                    }
+
+                    if (bestTri < 0)
+                    {
+                        if (!colors.Contains(-1))
+                        {
+                            // shouldn't happen
+                            continue;
+                        }
+
+                        // use the previous fill as we don't have a valid tri
+                        bestTri = -1;
+
+                    }
+
+                    const PODVector<Color>& triColors = colors[bestTri];
+
+                    c = Color::BLACK;
+                    for (unsigned i = 0; i < triColors.Size(); i++)
+                    {
+                        c += triColors[i];
+                    }
+
+                    c.r_ /= triColors.Size();
+                    c.g_ /= triColors.Size();
+                    c.b_ /= triColors.Size();
+
+                    image_->SetPixel(x, y, c);
+                    image_->SetPixel(x, y, 1, Color::RED);
                 }
             }
         }
@@ -143,17 +209,12 @@ void RadianceMap::Blur()
     {
         for (int j = 0; j < height; ++j)
         {
-            if (!CheckValidPixel(i, j, color))
-                continue;
 
             Vector3 rad;
-            int srcTriIndex;
+            int destTriIndex;
 
-            if (!bakeMesh_->GetRadiance(i, j, rad, srcTriIndex))
-            {
-                // this shouldn't happen
+            if (!bakeMesh_->GetRadiance(i, j, rad, destTriIndex))
                 continue;
-            }
 
             color = Color::BLACK;
             validPixels = 0;
@@ -175,22 +236,30 @@ void RadianceMap::Blur()
             {
                 for (int l = minL - 1; l < maxL; ++l)
                 {
-                    Color c;
-                    if (!CheckValidPixel(k, l, c))
-                        continue;
 
                     int tindex;
-                    if (!bakeMesh_->GetRadiance(k, l, rad, tindex) || tindex != srcTriIndex)
+                    if (!bakeMesh_->GetRadiance(i, j, rad, tindex))
+                        continue;
+
+                    if (tindex != destTriIndex)
+                        continue;
+
+                    Color c;
+                    if (!CheckValidPixel(k, l, c))
                         continue;
 
                     color += c;
                     ++validPixels;
                 }
             }
-            color.r_ /= validPixels;
-            color.g_ /= validPixels;
-            color.b_ /= validPixels;
-            target->SetPixel(i, j, color);
+
+            if (validPixels)
+            {
+                color.r_ /= validPixels;
+                color.g_ /= validPixels;
+                color.b_ /= validPixels;
+                target->SetPixel(i, j, color);
+            }
         }
     }
 

@@ -112,12 +112,15 @@ void MeshLightmapUVGen::WriteLightmapUVCoords()
         for (unsigned j = 0; j < 3; j++)
         {
             Vector2 uv = uvs[j];
+
+            /*
             uv -= center;
             uv *= 0.98f;
             uv += center;
 
             uv.x_ = Clamp<float>(uv.x_, 2, tOutputMesh_->atlas_width - 2);
             uv.y_ = Clamp<float>(uv.y_, 2, tOutputMesh_->atlas_height - 2);
+            */
 
             uv.x_ *= uscale;
             uv.y_ *= vscale;
@@ -280,13 +283,10 @@ bool MeshLightmapUVGen::Generate()
         Thekla::Atlas_Options atlasOptions;
         atlas_set_default_options(&atlasOptions);
 
-        // Set to zero for brute force,which seems to generate at least a weird debug world coord png
-        // also disabled in the thekla test app in GitHub repo
-        // atlasOptions.packer_options.witness.packing_quality = 0;
-        atlasOptions.packer_options.witness.packing_quality = 1;
-        atlasOptions.packer_options.witness.texel_area = 8;
+        // brute force packing quality
+        atlasOptions.packer_options.witness.packing_quality = 0;
+        atlasOptions.packer_options.witness.texel_area = 4;
         atlasOptions.packer_options.witness.conservative = true;
-
 
         Thekla::Atlas_Error error = Thekla::Atlas_Error_Success;
 
