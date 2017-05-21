@@ -301,8 +301,8 @@ void BakeMesh::Light()
 
 static unsigned CalcLightMapSize(unsigned sz)
 {
-    // highest multiple of 16, note rasterizer requires a multiple of 8!
-    sz = (sz + 16) & ~15;
+    // highest multiple of 8, note rasterizer requires a multiple of 8!
+    sz = (sz + 8) & ~7;
 
     if (sz > 512 && !IsPowerOfTwo(sz))
     {
@@ -312,8 +312,8 @@ static unsigned CalcLightMapSize(unsigned sz)
     if (sz < 32)
         sz = 32;
 
-    if (sz > 4096)
-        sz = 4096;
+    if (sz > 2048)
+        sz = 2048;
 
     return sz;
 
@@ -394,8 +394,8 @@ void BakeMesh::Preprocess()
                                         v2->position_);
         }
 
-        // TODO: global light scale for quick bakes and super sampling mode
-        float globalScale = 0.5f;
+        // TODO: global light scale for quick bakes
+        float globalScale = 0.25f;
 
         if (globalScale < 0.1f)
             globalScale = 0.1f;
@@ -403,24 +403,17 @@ void BakeMesh::Preprocess()
         // scene scale
         float sceneScale = 0.25f;
 
-        float maxarea = 64.0f * sceneScale;
+        totalarea = Clamp<float>(totalarea, 1, 64.0f);
 
-        if (totalarea > maxarea)
-            totalarea = maxarea;
-
-        float sz = 1.0f - (totalarea/maxarea);
-
-        sz = totalarea * 0.25f + totalarea * sz;
-
-        lmSize = CalcLightMapSize(sz * 64.0f * lmScale * globalScale);
+        lmSize = CalcLightMapSize(totalarea * 64.0f * lmScale * globalScale * sceneScale);
 
     }
 
     if (lmSize < 32)
         lmSize = 32;
 
-    if (lmSize > 4096)
-        lmSize = 4096;
+    if (lmSize > 2048)
+        lmSize = 2048;
 
     radianceWidth_ = lmSize;
     radianceHeight_ = lmSize;

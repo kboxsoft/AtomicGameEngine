@@ -285,7 +285,7 @@ bool MeshLightmapUVGen::Generate()
 
         // brute force packing quality
         atlasOptions.packer_options.witness.packing_quality = 0;
-        atlasOptions.packer_options.witness.texel_area = 4;
+        atlasOptions.packer_options.witness.texel_area = 8;
         atlasOptions.packer_options.witness.conservative = true;
 
         Thekla::Atlas_Error error = Thekla::Atlas_Error_Success;
