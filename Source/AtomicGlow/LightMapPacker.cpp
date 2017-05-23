@@ -229,10 +229,11 @@ void LightMapPacker::SaveLightmaps()
 #ifdef ATOMIC_PLATFORM_WINDOWS
         String filename = ToString("C:/Dev/atomic/AtomicExamplesPrivate/AtomicGlowTests/TestScene1/Resources/Textures/Scene_Lightmap%u.png", lightmap->GetID());
 #else
-        String filename = ToString("%s/Resources/Textures/Scene_Lightmap%u.png", GlobalGlowSettings.projectPath_.CString(), lightmap->GetID());
+        const char* format = GlobalGlowSettings.outputFormat_ == GLOW_OUTPUT_PNG ? "png" : "dds";
+        String filename = ToString("%s/Resources/Textures/Scene_Lightmap%u.%s", GlobalGlowSettings.projectPath_.CString(), lightmap->GetID(), format);
 #endif
 
-        lightmap->GetImage()->SavePNG(filename);
+        GlobalGlowSettings.outputFormat_ == GLOW_OUTPUT_PNG ? lightmap->GetImage()->SavePNG(filename) : lightmap->GetImage()->SaveDDS(filename);
 
     }
 

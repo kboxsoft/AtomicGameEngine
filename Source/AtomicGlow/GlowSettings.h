@@ -37,9 +37,16 @@ namespace AtomicGlow
         GLOW_PRESET_SLOW_EXTREME_QUALITY
     };
 
+    enum GlowOutputFormat
+    {
+        GLOW_OUTPUT_PNG,
+        GLOW_OUTPUT_DDS
+    };
+
     struct GlowSettings
     {
         int lightmapSize_;
+        GlowOutputFormat outputFormat_;
 
         float sceneLexelDensityScale_;
 
@@ -52,6 +59,7 @@ namespace AtomicGlow
         unsigned nsamples_;
         float aoMin_;
         float aoMultiply_;
+
 
         String projectPath_;
 
@@ -79,13 +87,19 @@ namespace AtomicGlow
         void SetDefaults(GlowPreset preset = GLOW_PRESET_HIGH_QUALITY)
         {
             // fix me
-            projectPath_ = "/Users/jenge/Dev/atomic/AtomicExamplesPrivate/AtomicGlowTests/TestScene2/";
+            projectPath_ = "/Users/jenge/Dev/atomic/AtomicExamplesPrivate/AtomicGlowTests/TestScene1/";
 
             // common settings
+
+            // lightmap size
             lightmapSize_ = 2048;
 
+            // TODO: Factor in DDS scene lighting loader, which have tested
+            // and minimal artifacts with significant runtime memory savings
+            outputFormat_ = GLOW_OUTPUT_PNG;
+
             sceneLexelDensityScale_ = 0.25f;
-            aoDepth_ = 1.0f;
+            aoDepth_ = 0.25f;
 
             aoEnabled_ = true;
             aoMin_ = 0.5f;
