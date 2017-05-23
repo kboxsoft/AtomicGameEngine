@@ -22,6 +22,7 @@
 
 #include <Atomic/Graphics/Zone.h>
 
+#include "GlowSettings.h"
 #include "EmbreeScene.h"
 
 #include "LightRay.h"
@@ -77,21 +78,29 @@ void ZoneBakeLight::Light(LightRay* lightRay)
 
     const Color& color = zone_->GetAmbientColor();
 
+    Vector3 rad(color.r_, color.g_, color.b_);
+
+    if (!GlobalGlowSettings.aoEnabled_)
+    {
+        source.bakeMesh->ContributeRadiance(lightRay, rad);
+        return;
+    }
+
+
     // TODO: AO using ray packets/streams
 
     RTCRay& ray = lightRay->rtcRay_;
 
-    // base this on area, or something
-    unsigned nsamples = 128;
+    unsigned nsamples = GlobalGlowSettings.nsamples_;
 
     // this needs to be based on model/scale likely?
-    float aoDepth = 1.0f;
+    float aoDepth = GlobalGlowSettings.aoDepth_;
 
     // smallest percent of ao value to use
-    float minao = 0.50f;
+    float aoMin = GlobalGlowSettings.aoMin_;
 
     // brightness control
-    float multiply = 1.0f;
+    float multiply = GlobalGlowSettings.aoMultiply_;
 
     // Shoot rays through the differential hemisphere.
     int nhits = 0;
@@ -123,9 +132,7 @@ void ZoneBakeLight::Light(LightRay* lightRay)
             avgDepth += Min<float>(ray.tfar, aoDepth);
             nhits++;
         }
-    }
-
-    Vector3 rad(color.r_, color.g_, color.b_);
+    }    
 
     if (nhits)// && (nsamples <= 32 ? true : nhits > 4))
     {
@@ -136,9 +143,9 @@ void ZoneBakeLight::Light(LightRay* lightRay)
         avgDepth *= avgDepth;
         float ao = avgDepth / 10000.0f;
 
-        ao = minao + ao/2.0f;
+        ao = aoMin + ao/2.0f;
         ao *= multiply;
-        ao = Clamp<float>(ao, minao, 1.0f);
+        ao = Clamp<float>(ao, aoMin, 1.0f);
 
         rad *= ao;
     }

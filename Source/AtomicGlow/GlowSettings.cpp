@@ -1,3 +1,4 @@
+//
 // Copyright (c) 2014-2017, THUNDERBEAST GAMES LLC All rights reserved
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -19,46 +20,11 @@
 // THE SOFTWARE.
 //
 
-#pragma once
-
-#include <Atomic/Core/Object.h>
-
 #include "GlowSettings.h"
-
-namespace Atomic
-{
-
-class Image;
-
-}
 
 namespace AtomicGlow
 {
 
-using namespace Atomic;
-
-class LightMap : public Object
-{
-    ATOMIC_OBJECT(LightMap, Object)
-
-    public:
-
-    LightMap(Context* context, int width = GlobalGlowSettings.lightmapSize_, int height = GlobalGlowSettings.lightmapSize_);
-    virtual ~LightMap();
-
-    unsigned GetID() const { return id_; }
-    void SetID(unsigned id) { id_ = id; }
-
-    Image* GetImage() const { return image_; }
-    void SetImage(Image* image) { image_ = image; }
-
-private:
-
-    unsigned id_;
-
-    SharedPtr<Image> image_;
-
-};
-
+GlowSettings GlobalGlowSettings;
 
 }

@@ -56,15 +56,14 @@ bool LightMapPacker::TryAddRadianceMap(RadianceMap* radMap)
     if (radMap->packed_)
         return false;
 
-    // FIXME: configurable
-    int numnodes = LIGHTMAP_WIDTH;
+    const int numnodes = GlobalGlowSettings.lightmapSize_;
 
     SharedArrayPtr<unsigned char> nodes(new unsigned char[sizeof(stbrp_node) * numnodes]);
     SharedArrayPtr<unsigned char> rects(new unsigned char[sizeof(stbrp_rect) * (workingSet_.Size() + 1)]);
 
     stbrp_context rectContext;
 
-    stbrp_init_target (&rectContext, LIGHTMAP_WIDTH, LIGHTMAP_HEIGHT, (stbrp_node *) nodes.Get(), numnodes);
+    stbrp_init_target (&rectContext, numnodes, numnodes, (stbrp_node *) nodes.Get(), numnodes);
     stbrp_rect* rect = (stbrp_rect*) rects.Get();
 
     // add working set, we do this brute force for best results
@@ -95,9 +94,8 @@ bool LightMapPacker::TryAddRadianceMap(RadianceMap* radMap)
 
 void LightMapPacker::EmitLightmap(unsigned lightMapID)
 {
-    // FIXME: configurable
-    int width = LIGHTMAP_WIDTH;
-    int height = LIGHTMAP_HEIGHT;
+    int width = GlobalGlowSettings.lightmapSize_;
+    int height = GlobalGlowSettings.lightmapSize_;
 
     // see note in stbrp_init_target docs
     int numnodes = width;
@@ -231,7 +229,7 @@ void LightMapPacker::SaveLightmaps()
 #ifdef ATOMIC_PLATFORM_WINDOWS
         String filename = ToString("C:/Dev/atomic/AtomicExamplesPrivate/AtomicGlowTests/TestScene1/Resources/Textures/Scene_Lightmap%u.png", lightmap->GetID());
 #else
-        String filename = ToString("/Users/jenge/Dev/atomic/AtomicExamplesPrivate/AtomicGlowTests/CornellBox/Resources/Textures/Scene_Lightmap%u.png", lightmap->GetID());
+        String filename = ToString("%s/Resources/Textures/Scene_Lightmap%u.png", GlobalGlowSettings.projectPath_.CString(), lightmap->GetID());
 #endif
 
         lightmap->GetImage()->SavePNG(filename);
@@ -268,7 +266,7 @@ void LightMapPacker::Pack()
         if (radMap->packed_)
             continue;
 
-        if (radMap->GetWidth() >= LIGHTMAP_WIDTH || radMap->GetHeight() >= LIGHTMAP_HEIGHT)
+        if (radMap->GetWidth() >= GlobalGlowSettings.lightmapSize_ || radMap->GetHeight() >= GlobalGlowSettings.lightmapSize_)
         {
             lightmap = new LightMap(context_);
             lightMaps_.Push(lightmap);

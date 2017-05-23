@@ -25,6 +25,7 @@
 #include <Atomic/IO/Log.h>
 #include <Atomic/Graphics/Zone.h>
 
+#include "GlowSettings.h"
 #include "Raster.h"
 #include "LightRay.h"
 #include "SceneBaker.h"
@@ -309,11 +310,7 @@ static unsigned CalcLightMapSize(unsigned sz)
         sz = NextPowerOfTwo(sz)/2;
     }
 
-    if (sz < 32)
-        sz = 32;
-
-    if (sz > 2048)
-        sz = 2048;
+    sz = Clamp<unsigned>(sz, 32, GlobalGlowSettings.lightmapSize_);
 
     return sz;
 
@@ -394,18 +391,9 @@ void BakeMesh::Preprocess()
                                         v2->position_);
         }
 
-        // TODO: global light scale for quick bakes
-        float globalScale = 0.25f;
-
-        if (globalScale < 0.1f)
-            globalScale = 0.1f;
-
-        // scene scale
-        float sceneScale = 0.25f;
-
         totalarea = Clamp<float>(totalarea, 1, 64.0f);
 
-        lmSize = CalcLightMapSize(totalarea * 64.0f * lmScale * globalScale * sceneScale);
+        lmSize = CalcLightMapSize(totalarea * 64.0f * lmScale * GlobalGlowSettings.lexelDensity_ * GlobalGlowSettings.sceneLexelDensityScale_);
 
     }
 
