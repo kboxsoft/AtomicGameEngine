@@ -34,6 +34,17 @@ namespace AtomicGlow
 
 const float LIGHT_ANGLE_EPSILON = 0.001f;
 
+// http://www.altdevblogaday.com/2012/05/03/generating-uniformly-distributed-points-on-sphere/
+static inline void GetRandomDirection(Vector3& result)
+{
+    float z = 2.0f * rand() / RAND_MAX - 1.0f;
+    float t = 2.0f * rand() / RAND_MAX * 3.14f;
+    float r = sqrt(1.0f - z * z);
+    result.x_ = r * (float) cos(t);
+    result.y_ = r * (float) sin(t);
+    result.z_ = z;
+}
+
 BakeLight::BakeLight(Context* context, SceneBaker* sceneBaker) : BakeNode(context, sceneBaker),
     range_(0.0f)
 {
@@ -58,11 +69,81 @@ ZoneBakeLight::~ZoneBakeLight()
 void ZoneBakeLight::Light(LightRay* lightRay)
 {
     LightRay::SamplePoint& source = lightRay->samplePoint_;
+
+    if (source.normal == Vector3::ZERO)
+        return;
+
+    RTCScene scene = sceneBaker_->GetEmbreeScene()->GetRTCScene();
+
     const Color& color = zone_->GetAmbientColor();
 
     // TODO: AO using ray packets/streams
 
-    source.bakeMesh->ContributeRadiance(lightRay, Vector3(color.r_, color.g_, color.b_));
+    RTCRay& ray = lightRay->rtcRay_;
+
+    // base this on area, or something
+    unsigned nsamples = 128;
+
+    // this needs to be based on model/scale likely?
+    float aoDepth = 1.0f;
+
+    // smallest percent of ao value to use
+    float minao = 0.50f;
+
+    // brightness control
+    float multiply = 1.0f;
+
+    // Shoot rays through the differential hemisphere.
+    int nhits = 0;
+    float avgDepth = 0.0f;
+    for (unsigned nsamp = 0; nsamp < nsamples; nsamp++)
+    {
+        Vector3 rayDir;
+        GetRandomDirection(rayDir);
+
+        float dotp = source.normal.x_ * rayDir.x_ +
+                     source.normal.y_ * rayDir.y_ +
+                     source.normal.z_ * rayDir.z_;
+
+        if (dotp < 0.1f)
+        {
+            continue;
+        }
+
+        float variance = 0.0f;//nsamples <= 32 ? 0.0f : aoDepth * ((float) rand() / (float) RAND_MAX) * 0.25f;
+
+        float depth = aoDepth + variance;
+
+        lightRay->SetupRay(source.position, rayDir, .001f, depth);
+
+        rtcOccluded(scene, ray);
+
+        if (ray.geomID != RTC_INVALID_GEOMETRY_ID)
+        {
+            avgDepth += Min<float>(ray.tfar, aoDepth);
+            nhits++;
+        }
+    }
+
+    Vector3 rad(color.r_, color.g_, color.b_);
+
+    if (nhits)// && (nsamples <= 32 ? true : nhits > 4))
+    {
+        avgDepth /= float(nhits);
+        avgDepth /= aoDepth;
+
+        avgDepth = Clamp<float>(avgDepth, 0.1f, 1.0f) * 100.0f;
+        avgDepth *= avgDepth;
+        float ao = avgDepth / 10000.0f;
+
+        ao *= multiply;
+        ao = minao + ao/2.0f;
+        ao = Clamp<float>(ao, minao, 1.0f);
+
+        rad *= ao;
+    }
+
+    source.bakeMesh->ContributeRadiance(lightRay, rad);
 }
 
 void ZoneBakeLight::SetZone(Zone* zone)
