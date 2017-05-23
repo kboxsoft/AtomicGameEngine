@@ -136,8 +136,8 @@ void ZoneBakeLight::Light(LightRay* lightRay)
         avgDepth *= avgDepth;
         float ao = avgDepth / 10000.0f;
 
-        ao *= multiply;
         ao = minao + ao/2.0f;
+        ao *= multiply;
         ao = Clamp<float>(ao, minao, 1.0f);
 
         rad *= ao;
