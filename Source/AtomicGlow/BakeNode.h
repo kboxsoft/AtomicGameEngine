@@ -23,6 +23,8 @@
 
 #include <Atomic/Scene/Node.h>
 
+#include "GlowTypes.h"
+
 using namespace Atomic;
 
 namespace AtomicGlow
@@ -34,10 +36,13 @@ class BakeNode : public Object
 {
     ATOMIC_OBJECT(BakeNode, Object)
 
-    public:
+public:
 
     BakeNode(Context* context, SceneBaker* sceneBaker);
     virtual ~BakeNode();
+
+    SceneBaker* GetSceneBaker() { return sceneBaker_; }
+    Node* GetNode() const { return node_; }
 
 protected:
 

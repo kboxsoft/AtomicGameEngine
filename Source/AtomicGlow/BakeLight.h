@@ -132,5 +132,37 @@ private:
 
 };
 
+// BakeMesh Bounce Lighting
+class BounceBakeLight : public BakeLight
+{
+    ATOMIC_OBJECT(BounceBakeLight, BakeLight)
+
+    public:
+
+    BounceBakeLight(Context* context, SceneBaker* sceneBaker);
+    virtual ~BounceBakeLight();
+
+    void Light(LightRay* lightRay);
+
+    void SetLight(Atomic::Light* light);
+
+    void SetBakeMesh(BakeMesh* bakeMesh);
+
+    void AddBounceSample(const BounceSample& bounceSample);
+
+    unsigned GetNumBounceSamples() const { return bounceSamples_.Size(); }
+
+protected:
+
+
+private:
+
+    PODVector<BounceSample> bounceSamples_;
+
+    WeakPtr<BakeMesh> bakeMesh_;
+
+};
+
+
 
 }

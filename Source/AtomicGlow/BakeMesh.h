@@ -41,9 +41,12 @@ class LightRay;
 class SceneBaker;
 class BakeLight;
 class BakeMesh;
+class BounceBakeLight;
 
 class BakeMesh : public BakeNode
 {
+    friend class BounceBakeLight;
+
     ATOMIC_OBJECT(BakeMesh, BakeNode)
 
     public:
@@ -60,6 +63,8 @@ class BakeMesh : public BakeNode
     {
         // index into bakeMaterials_ vector
         unsigned materialIndex_;
+
+        Vector3 normal_;
 
         // index into vertices_ array
         unsigned indices_[3];
@@ -93,15 +98,17 @@ class BakeMesh : public BakeNode
 
     void Preprocess();
 
+    void Light(GlowLightMode mode);
+
     bool GetLightmap() const { return staticModel_.Null() ? false : staticModel_->GetLightmap(); }
 
-    // would like this to be runnable on own thread
-    void Light();
-
-    void ContributeRadiance(const LightRay* lightRay, const Vector3 &radiance);
+    void ContributeRadiance(const LightRay* lightRay, const Vector3 &radiance, GlowLightMode lightMode = GLOW_LIGHTMODE_DIRECT);
 
     int GetRadianceWidth() const { return radianceWidth_; }
     int GetRadianceHeight() const { return radianceHeight_; }
+
+    BounceBakeLight* GenerateBounceBakeLight();
+    void GenerateRadianceMap();
 
     inline bool GetRadiance(int x, int y, Vector3& rad, int& triIndex) const
     {
@@ -132,26 +139,26 @@ class BakeMesh : public BakeNode
 
     void Pack(unsigned lightmapIdx, Vector4 tilingOffset);
 
+    bool GetUV0Color(int triIndex, const Vector3 &barycentric, Color& colorOut) const;
+
     const Color& GetAmbientColor() const { return ambientColor_; }
 
 private:
 
     struct ShaderData
     {
+        GlowLightMode lightMode_;
         BakeMesh* bakeMesh_;
         unsigned triangleIdx_;
     };
 
+    static void LightTrianglesWork(const WorkItem* item, unsigned threadIndex);
     static bool FillLexelsCallback(void* param, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage);
     static void OcclusionFilter(void* ptr, RTCRay& ray);
 
-    static void LightTrianglesWork(const WorkItem* item, unsigned threadIndex);
-    void HandleLightTrianglesWorkCompleted(StringHash eventType, VariantMap& eventData);
-
     bool LightPixel(ShaderData* shaderData, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage);
-    bool LightSample(MMSample* sample);
 
-    void GenerateRadianceMap();
+    void ResetBounce();
 
     // mesh geometry, in world space
 
@@ -175,11 +182,18 @@ private:
 
     // can be accessed from multiple threads
     SharedArrayPtr<Vector3> radiance_;
+    SharedArrayPtr<bool> radiancePassAccept_;
     // radiance -> triangle contributor
     SharedArrayPtr<int> radianceTriIndices_;
+    SharedArrayPtr<BounceSample> bounceSamples_[GLOW_MAX_BOUNCE_SAMPLE_TRIANGLES];
+    int numBounceSamples_;
 
     unsigned radianceHeight_;
     unsigned radianceWidth_;
+
+    unsigned bounceWidth_;
+    unsigned bounceHeight_;
+    unsigned bounceGranularity_;
 
     unsigned embreeGeomID_;
 

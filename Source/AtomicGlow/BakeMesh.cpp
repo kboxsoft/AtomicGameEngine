@@ -30,6 +30,7 @@
 #include "LightRay.h"
 #include "SceneBaker.h"
 #include "RadianceMap.h"
+#include "BakeLight.h"
 #include "BakeMesh.h"
 
 namespace AtomicGlow
@@ -38,8 +39,12 @@ namespace AtomicGlow
 BakeMesh::BakeMesh(Context* context, SceneBaker *sceneBaker) : BakeNode(context, sceneBaker),
     numVertices_(0),
     numTriangles_(0),
+    numBounceSamples_(0),
     radianceHeight_(0),
     radianceWidth_(0),
+    bounceWidth_(0),
+    bounceHeight_(0),
+    bounceGranularity_(0),
     embreeGeomID_(RTC_INVALID_GEOMETRY_ID),
     numWorkItems_(0),
     ambientColor_(Color::BLACK)
@@ -74,20 +79,25 @@ bool BakeMesh::FillLexelsCallback(void* param, int x, int y, const Vector3& bary
     return ((ShaderData*) param)->bakeMesh_->LightPixel((ShaderData*) param, x, y, barycentric, dx, dy, coverage);
 }
 
-bool BakeMesh::LightPixel(BakeMesh::ShaderData* shaderData, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage)
+bool BakeMesh::LightPixel(ShaderData* shaderData, int x, int y, const Vector3& barycentric,const Vector3& dx, const Vector3& dy, float coverage)
 {
     if (x >= radianceWidth_ || y >= radianceHeight_)
         return true;
 
     meshMutex_.Acquire();
+    bool accept = radiancePassAccept_[y * radianceWidth_ + x];
     const Vector3& rad = radiance_[y * radianceWidth_ + x];
-    meshMutex_.Release();
 
     // check whether we've already lit this pixel
-    if (rad.x_ >= 0.0f)
+    if (accept)
     {
+        meshMutex_.Release();
         return true;
     }
+
+    radiancePassAccept_[y * radianceWidth_ + x] = true;
+
+    meshMutex_.Release();
 
     MMTriangle* tri = &triangles_[shaderData->triangleIdx_];
     MMVertex* verts[3];
@@ -102,6 +112,7 @@ bool BakeMesh::LightPixel(BakeMesh::ShaderData* shaderData, int x, int y, const 
     sample.bakeMesh = this;
 
     sample.triangle = shaderData->triangleIdx_;
+    sample.barycentric = barycentric;
 
     sample.radianceX = x;
     sample.radianceY = y;
@@ -123,16 +134,6 @@ bool BakeMesh::LightPixel(BakeMesh::ShaderData* shaderData, int x, int y, const 
                   verts[2]->uv1_ * barycentric.z_;
 
 
-    // TODO: mode?
-    bool visualizeTris = false;
-
-    if (visualizeTris)
-    {
-        float c = float(shaderData->triangleIdx_) / float(numTriangles_);
-        ContributeRadiance(&ray, Vector3(c, c, c));
-        return true;
-    }
-
     sceneBaker_->TraceRay(&ray, bakeLights_);
 
     return true;
@@ -141,9 +142,10 @@ bool BakeMesh::LightPixel(BakeMesh::ShaderData* shaderData, int x, int y, const 
 void BakeMesh::LightTrianglesWork(const WorkItem* item, unsigned threadIndex)
 {
     ShaderData shaderData;
-    Vector2 triUV1[3];
-
     BakeMesh* bakeMesh = shaderData.bakeMesh_ = (BakeMesh*) item->aux_;
+
+    shaderData.lightMode_ = bakeMesh->GetSceneBaker()->GetCurrentLightMode();
+    Vector2 triUV1[3];
 
     Vector2 extents(bakeMesh->radianceWidth_, bakeMesh->radianceHeight_);
 
@@ -158,19 +160,6 @@ void BakeMesh::LightTrianglesWork(const WorkItem* item, unsigned threadIndex)
 
         start++;
 
-        Vector2 center;
-
-        for (unsigned j = 0; j < 3; j++)
-        {
-            unsigned idx = tri->indices_[j];
-            Vector2 uv1 = bakeMesh->vertices_[idx].uv1_;
-            uv1.x_ *= float(bakeMesh->radianceWidth_);
-            uv1.y_ *= float(bakeMesh->radianceHeight_);
-            center += uv1;
-        }
-
-        center /= 3.0f;
-
         for (unsigned j = 0; j < 3; j++)
         {
             unsigned idx = tri->indices_[j];
@@ -178,12 +167,6 @@ void BakeMesh::LightTrianglesWork(const WorkItem* item, unsigned threadIndex)
             triUV1[j] = bakeMesh->vertices_[idx].uv1_;
             triUV1[j].x_ *= float(bakeMesh->radianceWidth_);
             triUV1[j].y_ *= float(bakeMesh->radianceHeight_);
-
-            //triUV1[j].x_ = triUV1[j].x_ - center.x_ < 0.0f ? Ceil<float>(triUV1[j].x_) : Floor<float>(triUV1[j].x_);
-            //triUV1[j].y_ = triUV1[j].y_ - center.y_ < 0.0f ? Ceil<float>(triUV1[j].y_) : Floor<float>(triUV1[j].y_);
-
-            //triUV1[j].x_ = Floor<float>(triUV1[j].x_ + 0.5f);
-            //triUV1[j].y_ = Floor<float>(triUV1[j].y_ + 0.5f);
 
             triUV1[j].x_ = Clamp<float>(triUV1[j].x_, 0.0f, bakeMesh->radianceWidth_);
             triUV1[j].y_ = Clamp<float>(triUV1[j].y_, 0.0f, bakeMesh->radianceHeight_);
@@ -196,7 +179,7 @@ void BakeMesh::LightTrianglesWork(const WorkItem* item, unsigned threadIndex)
 }
 
 
-void BakeMesh::ContributeRadiance(const LightRay* lightRay, const Vector3& radiance)
+void BakeMesh::ContributeRadiance(const LightRay* lightRay, const Vector3& radiance, GlowLightMode lightMode)
 {
     MutexLock lock(meshMutex_);
 
@@ -218,6 +201,69 @@ void BakeMesh::ContributeRadiance(const LightRay* lightRay, const Vector3& radia
         radiance_[radY * radianceWidth_ + radX] += radiance;
     }
 
+    if (lightMode == GLOW_LIGHTMODE_AMBIENT || !GlobalGlowSettings.giEnabled_)
+        return;
+
+    // setup GI
+
+    // TODO: filter on < radiance + bounce settings
+    // OPTIMIZE: We can exit here if last bounce pass
+
+    // this should be replaced with a GetBounceColor which uses UV0 diffuse
+    // though takes into account additional settings, materials, etc
+    Color uv0Color;
+    if (!GetUV0Color(source.triangle, source.barycentric, uv0Color) || uv0Color.a_ < 0.5f)
+    {
+        return;
+    }
+
+    int iX = (source.radianceX) & ~(bounceGranularity_-1);
+    int iY = (source.radianceY) & ~(bounceGranularity_-1);
+
+    iX /= bounceGranularity_;
+    iY /= bounceGranularity_;
+
+    assert(iY * bounceWidth_ + iX < bounceWidth_ * bounceHeight_);
+
+    for (unsigned i = 0 ; i < GLOW_MAX_BOUNCE_SAMPLE_TRIANGLES; i++)
+    {
+        if (bounceSamples_[i].Null())
+        {
+            bounceSamples_[i] = new BounceSample[bounceWidth_ * bounceHeight_];
+            numBounceSamples_++;
+
+            for (unsigned j = 0; j < bounceWidth_ * bounceHeight_; j++)
+            {
+                bounceSamples_[i][j].Reset();
+            }
+        }
+
+        BounceSample& b = bounceSamples_[i][iY * bounceWidth_ + iX];
+
+        // check if already in use by another triangle
+        if (b.triIndex_ != -1 && b.triIndex_ != source.triangle)
+            continue;
+
+        if (b.triIndex_ == -1)
+        {
+            b.triIndex_ = source.triangle;
+            b.position_ = source.position;
+            b.radiance_ = radiance;
+            b.srcColor_ = uv0Color.ToVector3();
+            b.hits_ = 1;
+            //ATOMIC_LOGINFOF("+ Tri: %i, Pos: %s, Rad: %s, BTri: %i", b.triIndex_, b.position_.ToString().CString(), b.radiance_.ToString().CString(), i);
+            return;
+        }
+
+        //ATOMIC_LOGINFOF("- Tri: %i, Pos: %s, Rad: %s, BTri: %i", b.triIndex_, b.position_.ToString().CString(), b.radiance_.ToString().CString(), i);
+
+        b.position_ += source.position;
+        b.radiance_ += radiance;
+        b.srcColor_ += uv0Color.ToVector3();
+        b.hits_++;
+
+        break;
+    }
 }
 
 void BakeMesh::GenerateRadianceMap()
@@ -228,33 +274,39 @@ void BakeMesh::GenerateRadianceMap()
     radianceMap_ = new RadianceMap(context_, this);
 }
 
-void BakeMesh::HandleLightTrianglesWorkCompleted(StringHash eventType, VariantMap& eventData)
+void BakeMesh::ResetBounce()
 {
-    numWorkItems_--;
-
-    if (!numWorkItems_)
+    for (unsigned i = 0 ; i < GLOW_MAX_BOUNCE_SAMPLE_TRIANGLES; i++)
     {
-        // Done
-        GenerateRadianceMap();
+        if (bounceSamples_[i].Null())
+            continue;
+
+        for (unsigned j = 0; j < bounceWidth_ * bounceHeight_; j++)
+        {
+            bounceSamples_[i][j].Reset();
+        }
     }
+
+    numBounceSamples_ = 0;
 }
 
-void BakeMesh::Light()
+
+void BakeMesh::Light(GlowLightMode mode)
 {
+    if (mode == GLOW_LIGHTMODE_INDIRECT && !GlobalGlowSettings.giEnabled_)
+        return;
+
     if (!GetLightmap() || !radianceWidth_ || !radianceHeight_ || !numTriangles_)
         return;
 
+    bakeLights_.Clear();
+    sceneBaker_->QueryLights(boundingBox_, bakeLights_);
+
     // for all triangles
 
-    // init radiance
-    radiance_ = new Vector3[radianceWidth_ * radianceHeight_];
-    radianceTriIndices_ = new int[radianceWidth_ * radianceHeight_];
-
-    Vector3 v(-1, -1, -1);
     for (unsigned i = 0; i < radianceWidth_ * radianceHeight_; i++)
     {
-        radiance_[i] = v;
-        radianceTriIndices_[i] = -1;
+        radiancePassAccept_[i] = false;
     }
 
     WorkQueue* queue = GetSubsystem<WorkQueue>();
@@ -286,8 +338,6 @@ void BakeMesh::Light()
 
         item->sendEvent_ = true;
 
-        SubscribeToEvent(E_WORKITEMCOMPLETED, ATOMIC_HANDLER(BakeMesh, HandleLightTrianglesWorkCompleted));
-
         queue->AddWorkItem(item);
 
         numWorkItems_++;
@@ -297,6 +347,7 @@ void BakeMesh::Light()
 
         curIdx += numTrianglePerItem + 1;
     }
+
 
 }
 
@@ -406,8 +457,31 @@ void BakeMesh::Preprocess()
     radianceWidth_ = lmSize;
     radianceHeight_ = lmSize;
 
-    sceneBaker_->QueryLights(boundingBox_, bakeLights_);
+    // init radiance
+    radiance_ = new Vector3[radianceWidth_ * radianceHeight_];
+    radianceTriIndices_ = new int[radianceWidth_ * radianceHeight_];
+    radiancePassAccept_ = new bool[radianceWidth_ * radianceHeight_];
 
+    Vector3 v(-1, -1, -1);
+    for (unsigned i = 0; i < radianceWidth_ * radianceHeight_; i++)
+    {
+        radiance_[i] = v;
+        radianceTriIndices_[i] = -1;
+        radiancePassAccept_[i] = false;
+    }
+
+    // If GI is enabled, setup buffers
+    if (GlobalGlowSettings.giEnabled_)
+    {
+        bounceGranularity_ = GlobalGlowSettings.giGranularity_;
+        bounceWidth_ = (radianceWidth_) & ~(bounceGranularity_-1);
+        bounceHeight_ = (radianceHeight_) & ~(bounceGranularity_-1);
+
+        bounceWidth_ /= bounceGranularity_;
+        bounceHeight_ /= bounceGranularity_;
+
+        ResetBounce();
+    }
 }
 
 
@@ -485,7 +559,7 @@ bool BakeMesh::SetStaticModel(StaticModel* staticModel)
     {
         MPGeometry* mpGeo = lodLevel->mpGeometry_[i];
 
-        // Copy Vertices
+        // Setup Vertices
 
         MPVertex* vIn = &mpGeo->vertices_[0];
 
@@ -502,15 +576,20 @@ bool BakeMesh::SetStaticModel(StaticModel* staticModel)
             vIn++;
         }
 
-        // Copy Indices
+        // Setup Triangles
 
         for (unsigned j = 0; j < mpGeo->numIndices_; j+=3, tri++)
         {
             tri->materialIndex_ = i;
-
             tri->indices_[0] = mpGeo->indices_[j] + vertexStart;
             tri->indices_[1] = mpGeo->indices_[j + 1] + vertexStart;
             tri->indices_[2] = mpGeo->indices_[j + 2] + vertexStart;
+
+            tri->normal_ = vertices_[tri->indices_[0]].normal_;
+            tri->normal_ += vertices_[tri->indices_[1]].normal_;
+            tri->normal_ += vertices_[tri->indices_[2]].normal_;
+            tri->normal_ /= 3.0f;
+
         }
 
         indexStart  += mpGeo->numIndices_;
@@ -521,29 +600,27 @@ bool BakeMesh::SetStaticModel(StaticModel* staticModel)
 
 }
 
-void BakeMesh::OcclusionFilter(void* ptr, RTCRay& ray)
+bool BakeMesh::GetUV0Color(int triIndex, const Vector3& barycentric, Color& colorOut) const
 {
-    BakeMesh* bakeMesh = static_cast<BakeMesh*>(ptr);
+    colorOut = Color::BLACK;
 
-    MMTriangle* tri = &bakeMesh->triangles_[ray.primID];
+    if (triIndex < 0 || triIndex >= numTriangles_)
+        return false;
 
-    BakeMaterial* material = bakeMesh->bakeMaterials_[tri->materialIndex_];
-
-    if (!material->GetOcclusionMasked())
-        return;
-
-    Image* diffuse = material->GetDiffuseTexture();
+    const MMTriangle* tri = &triangles_[triIndex];
+    const BakeMaterial* material = bakeMaterials_[tri->materialIndex_];
+    const Image* diffuse = material->GetDiffuseTexture();
 
     if (!diffuse)
     {
-        return;
+        return false;
     }
 
-    const Vector2& st0 = bakeMesh->vertices_[tri->indices_[0]].uv0_;
-    const Vector2& st1 = bakeMesh->vertices_[tri->indices_[1]].uv0_;
-    const Vector2& st2 = bakeMesh->vertices_[tri->indices_[2]].uv0_;
+    const Vector2& st0 = vertices_[tri->indices_[0]].uv0_;
+    const Vector2& st1 = vertices_[tri->indices_[1]].uv0_;
+    const Vector2& st2 = vertices_[tri->indices_[2]].uv0_;
 
-    const float u = ray.u, v = ray.v, w = 1.0f-ray.u-ray.v;
+    const float u = barycentric.x_, v = barycentric.y_, w = barycentric.z_;
 
     const Vector2 st = w*st0 + u*st1 + v*st2;
 
@@ -556,13 +633,74 @@ void BakeMesh::OcclusionFilter(void* ptr, RTCRay& ray)
     if (y < 0)
         y = diffuse->GetWidth() + y;
 
-    Color color = diffuse->GetPixel(x, y);
+    colorOut = diffuse->GetPixel(x, y);
 
-    if (color.a_ < 0.5f)
+    return true;
+}
+
+BounceBakeLight* BakeMesh::GenerateBounceBakeLight()
+{
+    if (!numBounceSamples_)
+        return 0;
+
+    BounceBakeLight* bakeLight = new BounceBakeLight(context_, sceneBaker_);
+    bakeLight->SetBakeMesh(this);
+
+    BounceSample b;
+
+    for (int y = 0; y < bounceHeight_; y++)
     {
-        ray.geomID = RTC_INVALID_GEOMETRY_ID;
+        for (int x = 0; x < bounceWidth_; x++)
+        {
+            for (int z = 0; z < numBounceSamples_; z++)
+            {
+                const BounceSample& bSrc = bounceSamples_[z][y * bounceWidth_ + x];
+
+                if (bSrc.triIndex_ == -1)
+                    break;
+
+                b.Reset();
+
+                b.triIndex_ = bSrc.triIndex_;
+
+                // average of positions
+                b.position_ = bSrc.position_ / bSrc.hits_;
+
+                // average of colors
+                b.srcColor_ = bSrc.srcColor_ / bSrc.hits_;
+
+                // clamp radiance
+                b.radiance_ = bSrc.radiance_;
+
+                if (b.radiance_.Length() > 3.0f)
+                {
+                    b.radiance_.Normalize();
+                    b.radiance_ *= 3.0f;
+                }
+
+                bakeLight->AddBounceSample(b);
+
+            }
+        }
     }
 
+    ResetBounce();
+
+    return bakeLight;
+}
+
+void BakeMesh::OcclusionFilter(void* ptr, RTCRay& ray)
+{
+    const BakeMesh* bakeMesh = static_cast<BakeMesh*>(ptr);
+
+    Color color;
+    if (bakeMesh->GetUV0Color(ray.primID, Vector3(ray.u, ray.v, 1.0f-ray.u-ray.v), color))
+    {
+        if (color.a_ < 0.5f)
+        {
+            ray.geomID = RTC_INVALID_GEOMETRY_ID;
+        }
+    }
 }
 
 

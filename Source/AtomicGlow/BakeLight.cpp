@@ -82,7 +82,7 @@ void ZoneBakeLight::Light(LightRay* lightRay)
 
     if (!GlobalGlowSettings.aoEnabled_)
     {
-        source.bakeMesh->ContributeRadiance(lightRay, rad);
+        source.bakeMesh->ContributeRadiance(lightRay, rad, GLOW_LIGHTMODE_AMBIENT);
         return;
     }
 
@@ -150,7 +150,7 @@ void ZoneBakeLight::Light(LightRay* lightRay)
         rad *= ao;
     }
 
-    source.bakeMesh->ContributeRadiance(lightRay, rad);
+    source.bakeMesh->ContributeRadiance(lightRay, rad, GLOW_LIGHTMODE_AMBIENT);
 }
 
 void ZoneBakeLight::SetZone(Zone* zone)
@@ -209,6 +209,7 @@ void DirectionalBakeLight::SetLight(Atomic::Light* light)
     direction_.Normalize();
 
 }
+
 // Point Lights
 
 PointBakeLight::PointBakeLight(Context* context, SceneBaker* sceneBaker) : BakeLight(context, sceneBaker)
@@ -269,6 +270,106 @@ void PointBakeLight::SetLight(Atomic::Light* light)
     range_ = light->GetRange();
 
 }
+
+// Bounce Lights
+
+BounceBakeLight::BounceBakeLight(Context* context, SceneBaker* sceneBaker) : BakeLight(context, sceneBaker)
+{
+}
+
+BounceBakeLight::~BounceBakeLight()
+{
+
+}
+
+void BounceBakeLight::Light(LightRay* lightRay)
+{
+    RTCScene scene = sceneBaker_->GetEmbreeScene()->GetRTCScene();
+    LightRay::SamplePoint& source = lightRay->samplePoint_;          
+    RTCRay& ray = lightRay->rtcRay_;
+
+    Vector3 totalRad;
+    int numRad = 0;
+
+    for (unsigned i = 0; i < bounceSamples_.Size(); i++)
+    {
+        const BounceSample& b = bounceSamples_[i];
+
+        // don't light self
+        if (source.triangle == b.triIndex_)
+            continue;
+
+        BakeMesh::MMTriangle* tri = &bakeMesh_->triangles_[b.triIndex_];
+
+        if (tri->normal_.DotProduct(source.normal) > 0.0f)
+            continue;
+
+        Vector3 dir = b.position_ - source.position;
+
+        Vector3 r = b.radiance_;
+
+        r /= 3.0;
+
+        float range = r.Length() * 8.0f;
+
+        float dist = dir.Length();
+
+        if (dist > range)
+            continue;
+
+        dir.Normalize();
+
+        float dot = dir.DotProduct(source.normal);
+
+        if (dot < 0.0f)
+            continue;
+
+        Vector3 rad = b.srcColor_;
+
+        rad *= Max<float> (1.0f - ( dist * 1.2 / range), 0.0f);
+        //rad *= dot;
+
+        totalRad += rad;
+        numRad++;
+    }
+
+    if (!numRad)
+        return;
+
+    // average rad is what we want?
+    totalRad /= numRad;
+
+    if (totalRad.Length() > M_EPSILON)
+        source.bakeMesh->ContributeRadiance(lightRay, totalRad, GLOW_LIGHTMODE_INDIRECT);
+
+}
+
+void BounceBakeLight::AddBounceSample(const BounceSample& bounceSample)
+{
+    bounceSamples_.Push(bounceSample);
+}
+
+void BounceBakeLight::SetBakeMesh(BakeMesh* bakeMesh)
+{
+    bakeMesh_ = bakeMesh;
+    node_ = bakeMesh->GetNode();
+
+    color_ = Color::MAGENTA;
+    range_ = -1.0f;
+    position_ = Vector3::ZERO;
+}
+
+void BounceBakeLight::SetLight(Atomic::Light* light)
+{
+    node_ = light->GetNode();
+
+    color_ = light->GetColor();
+    position_ = node_->GetWorldPosition();
+
+    range_ = light->GetRange();
+
+}
+
 
 
 }

@@ -66,6 +66,7 @@ public:
         unsigned radianceX;
         unsigned radianceY;
 
+        Vector3 barycentric;
         Vector3 position;
         Vector3 normal;
         Vector2 uv0;

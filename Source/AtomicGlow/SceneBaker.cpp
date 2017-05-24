@@ -43,7 +43,8 @@
 namespace AtomicGlow
 {
 
-SceneBaker::SceneBaker(Context* context) : Object(context)
+SceneBaker::SceneBaker(Context* context) : Object(context),
+    currentLightMode_(GLOW_LIGHTMODE_DIRECT)
 {
     embreeScene_ = new EmbreeScene(context_);
 }
@@ -95,13 +96,62 @@ void SceneBaker::TraceRay(LightRay* lightRay, const PODVector<BakeLight*>& bakeL
 
 bool SceneBaker::Light()
 {
+
+    // Direct Lighting
+    currentLightMode_ = GLOW_LIGHTMODE_INDIRECT;
+
     for (unsigned i = 0; i < bakeMeshes_.Size(); i++)
-    {
+    {        
         BakeMesh* mesh = bakeMeshes_[i];
-        mesh->Light();
+        mesh->Light(GLOW_LIGHTMODE_DIRECT);
     }
 
     GetSubsystem<WorkQueue>()->Complete(0);
+
+    // Indirect Lighting
+    currentLightMode_ = GLOW_LIGHTMODE_INDIRECT;
+
+    while (GlobalGlowSettings.giEnabled_)
+    {
+        bakeLights_.Clear();
+
+        BounceBakeLight* blight;
+        unsigned totalBounceSamples = 0;
+
+        for (unsigned i = 0; i < bakeMeshes_.Size(); i++)
+        {
+            BakeMesh* mesh = bakeMeshes_[i];
+            blight = mesh->GenerateBounceBakeLight();
+            if (blight)
+            {
+                bakeLights_.Push(SharedPtr<BakeLight>(blight));
+                totalBounceSamples += blight->GetNumBounceSamples();
+            }
+        }
+
+        if (!bakeLights_.Size())
+            break;
+
+        ATOMIC_LOGINFOF("IMPORTANT: Optimize allocation of samples! Indirect lighting with %u bounce lights and %u samples", bakeLights_.Size(), totalBounceSamples);
+
+        for (unsigned i = 0; i < bakeMeshes_.Size(); i++)
+        {
+            BakeMesh* mesh = bakeMeshes_[i];
+            mesh->Light(GLOW_LIGHTMODE_INDIRECT);
+        }
+
+        GetSubsystem<WorkQueue>()->Complete(0);
+
+        // break until we limit indirect lighting
+        break;
+
+    }
+
+    for (unsigned i = 0; i < bakeMeshes_.Size(); i++)
+    {
+        BakeMesh* mesh = bakeMeshes_[i];
+        mesh->GenerateRadianceMap();
+    }
 
     return true;
 }

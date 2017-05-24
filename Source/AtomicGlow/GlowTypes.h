@@ -21,61 +21,43 @@
 
 #pragma once
 
-#include <Atomic/Scene/Scene.h>
-#include "GlowTypes.h"
+#include <Atomic/Math/Vector3.h>
 
 using namespace Atomic;
 
 namespace AtomicGlow
 {
 
-class LightRay;
-class BakeMesh;
-class BakeLight;
-class EmbreeScene;
+const unsigned GLOW_MAX_BOUNCE_SAMPLE_TRIANGLES = 8;
 
-class SceneBaker : public Object
+enum GlowLightMode
 {
-    ATOMIC_OBJECT(SceneBaker, Object)
+    GLOW_LIGHTMODE_AMBIENT,
+    GLOW_LIGHTMODE_DIRECT,
+    GLOW_LIGHTMODE_INDIRECT
+};
 
-    public:
+struct BounceSample
+{
+    int triIndex_;
+    Vector3 position_;
+    Vector3 radiance_;
+    Vector3 srcColor_;
+    int hits_;
 
-    SceneBaker(Context* context);
-    virtual ~SceneBaker();
+    BounceSample()
+    {
+        Reset();
+    }
 
-    bool Preprocess();
-
-    bool Light();
-
-    bool LoadScene(const String& filename);
-
-    bool GenerateLightmaps();
-
-    GlowLightMode GetCurrentLightMode() const { return currentLightMode_; }
-
-    void QueryLights(const BoundingBox& bbox, PODVector<BakeLight*>& lights);
-
-    void TraceRay(LightRay* lightRay, const PODVector<AtomicGlow::BakeLight *>& bakeLights_);
-
-    EmbreeScene* GetEmbreeScene() const { return embreeScene_; }
-
-
-
-private:
-
-    //void FilterLightmap(Image* lightmap);
-    //void EmitLightmap(int lightMapIndex);
-    //bool TryAddStaticModelBaker(StaticModelBaker *bakeModel);
-
-    SharedPtr<Scene> scene_;
-    SharedPtr<EmbreeScene> embreeScene_;
-
-    Vector<SharedPtr<BakeMesh>> bakeMeshes_;
-
-    Vector<SharedPtr<BakeLight>> bakeLights_;
-
-    GlowLightMode currentLightMode_;
-
+    void Reset()
+    {
+        triIndex_ = -1;
+        Vector3 v(-1, -1, -1);
+        position_ = radiance_ = v;
+        srcColor_ = Vector3::ZERO;
+        hits_ = 0;
+    }
 };
 
 }

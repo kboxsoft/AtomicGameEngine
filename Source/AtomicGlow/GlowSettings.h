@@ -53,6 +53,11 @@ namespace AtomicGlow
         // global scalar
         float lexelDensity_;
 
+        // global illumination
+        bool giEnabled_;
+        int giGranularity_;
+        int giMaxBounces_;
+
         // ambient occlusion
         bool aoEnabled_;
         float aoDepth_;
@@ -84,25 +89,27 @@ namespace AtomicGlow
             aoMultiply_ = Clamp<float>(aoMultiply_, 0.01f, 100.0f);
         }
 
-        void SetDefaults(GlowPreset preset = GLOW_PRESET_HIGH_QUALITY)
+        void SetDefaults(GlowPreset preset = GLOW_PRESET_MEDIUM_QUALITY)
         {
             // fix me
-            projectPath_ = "/Users/jenge/Dev/atomic/AtomicExamplesPrivate/AtomicGlowTests/TestScene1/";
+            projectPath_ = "/Users/jenge/Dev/atomic/AtomicExamplesPrivate/AtomicGlowTests/CornellBox/";
 
             // common settings
 
             // lightmap size
             lightmapSize_ = 2048;
 
+            giMaxBounces_ = 1;
+
+            sceneLexelDensityScale_ = 0.4f;
+
             // TODO: Factor in DDS scene lighting loader, which have tested
             // and minimal artifacts with significant runtime memory savings
             outputFormat_ = GLOW_OUTPUT_PNG;
 
-            sceneLexelDensityScale_ = 0.25f;
-            aoDepth_ = 0.25f;
-
-            aoEnabled_ = true;
-            aoMin_ = 0.5f;
+            aoEnabled_ = false;
+            aoDepth_ = 2.0f;
+            aoMin_ = 0.85f;
             aoMultiply_ = 1.0f;
 
             switch (preset)
@@ -110,18 +117,24 @@ namespace AtomicGlow
                 case GLOW_PRESET_FAST_LOW_QUALITY:
                     lexelDensity_ = 0.16f;
                     nsamples_ = 16;
+                    giEnabled_ = false;
                     break;
                 case GLOW_PRESET_MEDIUM_QUALITY:
                     lexelDensity_ = 0.32f;
                     nsamples_ = 64;
+                    giEnabled_ = true;
+                    giGranularity_ = 8;
                     break;
                 case GLOW_PRESET_HIGH_QUALITY:
-                    lexelDensity_ = 0.5f;
-                    nsamples_ = 256;
+                    lexelDensity_ = 0.5f;                    
+                    giEnabled_ = true;
+                    giGranularity_ = 16;
                     break;
                 case GLOW_PRESET_SLOW_EXTREME_QUALITY:
                     lexelDensity_ = 0.65f;
                     nsamples_ = 256;
+                    giEnabled_ = true;
+                    giGranularity_ = 8;
                     break;
             }
         }
