@@ -287,10 +287,12 @@ void BounceBakeLight::Light(LightRay* lightRay)
     RTCScene scene = sceneBaker_->GetEmbreeScene()->GetRTCScene();
     LightRay::SamplePoint& source = lightRay->samplePoint_;          
     RTCRay& ray = lightRay->rtcRay_;
+    BakeMesh::MMTriangle* tri;
 
-    Vector3 totalRad;
-    int numRad = 0;
+    int bestIndex = -1;
+    float bestDistSq = M_INFINITY;
 
+    // sort so we can find first 1 or up to x
     for (unsigned i = 0; i < bounceSamples_.Size(); i++)
     {
         const BounceSample& b = bounceSamples_[i];
@@ -299,46 +301,49 @@ void BounceBakeLight::Light(LightRay* lightRay)
         if (source.triangle == b.triIndex_)
             continue;
 
-        BakeMesh::MMTriangle* tri = &bakeMesh_->triangles_[b.triIndex_];
+        tri = &bakeMesh_->triangles_[b.triIndex_];
 
-        if (tri->normal_.DotProduct(source.normal) > 0.0f)
+        float dot = tri->normal_.DotProduct(source.normal);
+
+        if ( dot >= 0.5f)
             continue;
 
-        Vector3 dir = b.position_ - source.position;
+        Vector3 dir =  b.position_ - source.position;
 
-        float range = b.radiance_.Length();
-        range /= b.hits_;
-        range *= 32.0;
-
-        float dist = dir.Length();
-
-        if (dist > range)
+        if (dir.DotProduct(source.normal) < 0.0f)
             continue;
 
-        dir.Normalize();
+        float lenSq = dir.LengthSquared();
 
-        float dot = dir.DotProduct(source.normal);
-
-        if (dot < 0.0f)
-            continue;
-
-        Vector3 rad = b.srcColor_;
-
-        rad *= Max<float> (1.0f - ( dist * 1.2 / range), 0.0f);
-        //rad *= dot;
-
-        totalRad += rad;
-        numRad++;
+        if (lenSq < bestDistSq )
+        {
+            bestDistSq = lenSq;
+            bestIndex = i;
+        }
     }
 
-    if (!numRad)
+    if (bestIndex == -1)
         return;
 
-    // average rad is what we want?
-    totalRad /=  (numRad * 2);
+    const BounceSample& bsample = bounceSamples_[bestIndex];
+    tri = &bakeMesh_->triangles_[bsample.triIndex_];
 
-    if (totalRad.Length() > M_EPSILON)
-        source.bakeMesh->ContributeRadiance(lightRay, totalRad, GLOW_LIGHTMODE_INDIRECT);
+    float dist = sqrtf(bestDistSq);
+
+    if (dist > M_EPSILON && dist <= 16.0f)
+    {
+        Vector3 rad = bsample.radiance_/bsample.hits_;
+        rad += bsample.srcColor_;
+        rad /= 2.0f;
+
+        float d = 1.0f - Clamp<float>(dist / 16.0f, 0.01f, 1.0f);
+
+        rad *= d;
+
+        rad *= 0.20f;
+
+        source.bakeMesh->ContributeRadiance(lightRay, rad, GLOW_LIGHTMODE_INDIRECT);
+    }
 
 }
 

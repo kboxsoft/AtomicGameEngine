@@ -670,7 +670,13 @@ BounceBakeLight* BakeMesh::GenerateBounceBakeLight()
                 // average of colors
                 b.srcColor_ = bSrc.srcColor_ / bSrc.hits_;
 
+                if (b.srcColor_.Length() < 0.15f)
+                    continue;
+
                 b.radiance_ = bSrc.radiance_;
+
+                if ((b.radiance_/bSrc.hits_).Length() < 0.15f)
+                    continue;
 
                 bakeLight->AddBounceSample(b);
 
@@ -687,7 +693,7 @@ void BakeMesh::OcclusionFilter(void* ptr, RTCRay& ray)
 {
     const BakeMesh* bakeMesh = static_cast<BakeMesh*>(ptr);
 
-    if (ray.primID < 0 || ray.primID >= (unsigned) bakeMesh->numTriangles_)
+    if (ray.primID >= (unsigned) bakeMesh->numTriangles_)
         return;
 
     const MMTriangle* tri = &bakeMesh->triangles_[ray.primID];

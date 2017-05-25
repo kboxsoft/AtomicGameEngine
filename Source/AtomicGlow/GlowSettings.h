@@ -101,14 +101,14 @@ namespace AtomicGlow
 
             giMaxBounces_ = 1;
 
-            sceneLexelDensityScale_ = 0.4f;
+            sceneLexelDensityScale_ = 0.35f;
 
             // TODO: Factor in DDS scene lighting loader, which have tested
             // and minimal artifacts with significant runtime memory savings
             outputFormat_ = GLOW_OUTPUT_PNG;
 
             aoEnabled_ = false;
-            aoDepth_ = 2.0f;
+            aoDepth_ = 3.0f;
             aoMin_ = 0.85f;
             aoMultiply_ = 1.0f;
 
@@ -123,13 +123,13 @@ namespace AtomicGlow
                     lexelDensity_ = 0.32f;
                     nsamples_ = 64;
                     giEnabled_ = true;
-                    giGranularity_ = 8;
+                    giGranularity_ = 4;
                     break;
                 case GLOW_PRESET_HIGH_QUALITY:
                     lexelDensity_ = 0.5f;                    
                     giEnabled_ = true;
                     nsamples_ = 256;
-                    giGranularity_ = 8;
+                    giGranularity_ = 4;
                     break;
                 case GLOW_PRESET_SLOW_EXTREME_QUALITY:
                     lexelDensity_ = 0.65f;
