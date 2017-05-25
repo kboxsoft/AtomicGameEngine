@@ -306,11 +306,9 @@ void BounceBakeLight::Light(LightRay* lightRay)
 
         Vector3 dir = b.position_ - source.position;
 
-        Vector3 r = b.radiance_;
-
-        r /= 3.0;
-
-        float range = r.Length() * 8.0f;
+        float range = b.radiance_.Length();
+        range /= b.hits_;
+        range *= 32.0;
 
         float dist = dir.Length();
 
@@ -337,7 +335,7 @@ void BounceBakeLight::Light(LightRay* lightRay)
         return;
 
     // average rad is what we want?
-    totalRad /= numRad;
+    totalRad /=  (numRad * 2);
 
     if (totalRad.Length() > M_EPSILON)
         source.bakeMesh->ContributeRadiance(lightRay, totalRad, GLOW_LIGHTMODE_INDIRECT);

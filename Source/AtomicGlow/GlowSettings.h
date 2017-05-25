@@ -89,7 +89,7 @@ namespace AtomicGlow
             aoMultiply_ = Clamp<float>(aoMultiply_, 0.01f, 100.0f);
         }
 
-        void SetDefaults(GlowPreset preset = GLOW_PRESET_MEDIUM_QUALITY)
+        void SetDefaults(GlowPreset preset = GLOW_PRESET_HIGH_QUALITY)
         {
             // fix me
             projectPath_ = "/Users/jenge/Dev/atomic/AtomicExamplesPrivate/AtomicGlowTests/CornellBox/";
@@ -128,7 +128,8 @@ namespace AtomicGlow
                 case GLOW_PRESET_HIGH_QUALITY:
                     lexelDensity_ = 0.5f;                    
                     giEnabled_ = true;
-                    giGranularity_ = 16;
+                    nsamples_ = 256;
+                    giGranularity_ = 8;
                     break;
                 case GLOW_PRESET_SLOW_EXTREME_QUALITY:
                     lexelDensity_ = 0.65f;

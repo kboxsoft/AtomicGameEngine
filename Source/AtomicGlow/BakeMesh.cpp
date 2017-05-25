@@ -662,6 +662,7 @@ BounceBakeLight* BakeMesh::GenerateBounceBakeLight()
                 b.Reset();
 
                 b.triIndex_ = bSrc.triIndex_;
+                b.hits_ = bSrc.hits_;
 
                 // average of positions
                 b.position_ = bSrc.position_ / bSrc.hits_;
@@ -669,14 +670,7 @@ BounceBakeLight* BakeMesh::GenerateBounceBakeLight()
                 // average of colors
                 b.srcColor_ = bSrc.srcColor_ / bSrc.hits_;
 
-                // clamp radiance
                 b.radiance_ = bSrc.radiance_;
-
-                if (b.radiance_.Length() > 3.0f)
-                {
-                    b.radiance_.Normalize();
-                    b.radiance_ *= 3.0f;
-                }
 
                 bakeLight->AddBounceSample(b);
 
@@ -692,6 +686,15 @@ BounceBakeLight* BakeMesh::GenerateBounceBakeLight()
 void BakeMesh::OcclusionFilter(void* ptr, RTCRay& ray)
 {
     const BakeMesh* bakeMesh = static_cast<BakeMesh*>(ptr);
+
+    if (ray.primID < 0 || ray.primID >= (unsigned) bakeMesh->numTriangles_)
+        return;
+
+    const MMTriangle* tri = &bakeMesh->triangles_[ray.primID];
+    const BakeMaterial* material = bakeMesh->bakeMaterials_[tri->materialIndex_];
+
+    if (!material->GetOcclusionMasked())
+        return;
 
     Color color;
     if (bakeMesh->GetUV0Color(ray.primID, Vector3(ray.u, ray.v, 1.0f-ray.u-ray.v), color))
