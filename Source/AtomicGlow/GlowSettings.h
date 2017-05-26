@@ -89,10 +89,10 @@ namespace AtomicGlow
             aoMultiply_ = Clamp<float>(aoMultiply_, 0.01f, 100.0f);
         }
 
-        void SetDefaults(GlowPreset preset = GLOW_PRESET_HIGH_QUALITY)
+        void SetDefaults(GlowPreset preset = GLOW_PRESET_MEDIUM_QUALITY)
         {
             // fix me
-            projectPath_ = "/Users/jenge/Dev/atomic/AtomicExamplesPrivate/AtomicGlowTests/CornellBox/";
+            projectPath_ = "/Users/jenge/Dev/atomic/AtomicExamplesPrivate/AtomicGlowTests/TestScene1/";
 
             // common settings
 
@@ -101,15 +101,15 @@ namespace AtomicGlow
 
             giMaxBounces_ = 1;
 
-            sceneLexelDensityScale_ = 0.35f;
+            sceneLexelDensityScale_ = 0.25f;
 
             // TODO: Factor in DDS scene lighting loader, which have tested
             // and minimal artifacts with significant runtime memory savings
             outputFormat_ = GLOW_OUTPUT_PNG;
 
-            aoEnabled_ = false;
-            aoDepth_ = 3.0f;
-            aoMin_ = 0.85f;
+            aoEnabled_ = true;
+            aoDepth_ = 0.25f;
+            aoMin_ = 0.65f;
             aoMultiply_ = 1.0f;
 
             switch (preset)
@@ -123,13 +123,13 @@ namespace AtomicGlow
                     lexelDensity_ = 0.32f;
                     nsamples_ = 64;
                     giEnabled_ = true;
-                    giGranularity_ = 4;
+                    giGranularity_ = 8;
                     break;
                 case GLOW_PRESET_HIGH_QUALITY:
                     lexelDensity_ = 0.5f;                    
                     giEnabled_ = true;
                     nsamples_ = 256;
-                    giGranularity_ = 4;
+                    giGranularity_ = 8;
                     break;
                 case GLOW_PRESET_SLOW_EXTREME_QUALITY:
                     lexelDensity_ = 0.65f;

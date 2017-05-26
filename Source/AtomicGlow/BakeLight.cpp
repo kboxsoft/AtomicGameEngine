@@ -132,7 +132,7 @@ void ZoneBakeLight::Light(LightRay* lightRay)
             avgDepth += Min<float>(ray.tfar, aoDepth);
             nhits++;
         }
-    }    
+    }
 
     if (nhits)// && (nsamples <= 32 ? true : nhits > 4))
     {
@@ -273,6 +273,8 @@ void PointBakeLight::SetLight(Atomic::Light* light)
 
 // Bounce Lights
 
+Mutex BounceBakeLight::sortMutex_;
+
 BounceBakeLight::BounceBakeLight(Context* context, SceneBaker* sceneBaker) : BakeLight(context, sceneBaker)
 {
 }
@@ -282,58 +284,113 @@ BounceBakeLight::~BounceBakeLight()
 
 }
 
+static Vector3 compareBouncePoint;
+static inline bool CompareBounceSamples(const BounceSample* lhs, const BounceSample* rhs)
+{
+    Vector3 v1 =  lhs->position_ - compareBouncePoint;
+    Vector3 v2 =  rhs->position_ - compareBouncePoint;
+    return v1.LengthSquared() < v2.LengthSquared();
+}
+
 void BounceBakeLight::Light(LightRay* lightRay)
 {
     RTCScene scene = sceneBaker_->GetEmbreeScene()->GetRTCScene();
-    LightRay::SamplePoint& source = lightRay->samplePoint_;          
+    LightRay::SamplePoint& source = lightRay->samplePoint_;
     RTCRay& ray = lightRay->rtcRay_;
     BakeMesh::MMTriangle* tri;
 
-    int bestIndex = -1;
-    float bestDistSq = M_INFINITY;
+    const float maxDist = 2.0f;
+    const float maxDistSq = maxDist * maxDist;
 
-    // sort so we can find first 1 or up to x
+    const BounceSample* b;
+    PODVector<const BounceSample*> samples;
+
     for (unsigned i = 0; i < bounceSamples_.Size(); i++)
     {
-        const BounceSample& b = bounceSamples_[i];
+        b = &bounceSamples_[i];
 
         // don't light self
-        if (source.triangle == b.triIndex_)
+        if (source.bakeMesh == bakeMesh_ && source.triangle == b->triIndex_)
             continue;
 
-        tri = &bakeMesh_->triangles_[b.triIndex_];
+        tri = &bakeMesh_->triangles_[b->triIndex_];
 
-        float dot = tri->normal_.DotProduct(source.normal);
+        //if (tri->normal_.DotProduct(source.normal) > 0.25f)
+        //    continue;
 
-        if ( dot >= 0.5f)
-            continue;
-
-        Vector3 dir =  b.position_ - source.position;
+        Vector3 dir =  b->position_ - source.position;
 
         if (dir.DotProduct(source.normal) < 0.0f)
             continue;
 
-        float lenSq = dir.LengthSquared();
-
-        if (lenSq < bestDistSq )
+        if (dir.LengthSquared() <= maxDistSq)
         {
-            bestDistSq = lenSq;
-            bestIndex = i;
+            samples.Push(b);
         }
+
+    }
+
+    if (!samples.Size())
+        return;
+
+    sortMutex_.Acquire();
+
+    compareBouncePoint = source.position;
+
+    Sort(samples.Begin(), samples.End(), CompareBounceSamples);
+
+    sortMutex_.Release();
+
+
+    int bestIndex = -1;
+    float bestDistSqr = M_INFINITY;
+    for (unsigned i = 0; i < samples.Size(); i++)
+    {
+        b = samples[i];
+
+        Vector3 dir =  b->position_ - source.position;
+
+        float distSqr = dir.LengthSquared();
+
+        if (distSqr < bestDistSqr)
+        {
+            tri = &bakeMesh_->triangles_[b->triIndex_];
+            bestIndex = i;
+            bestDistSqr = distSqr;
+        }
+
+        /*
+
+        lightRay->SetupRay(source.position, dir, .001f, dist);
+
+        rtcOccluded(scene, ray);
+
+        if (ray.geomID != bakeMesh_->GetGeomID())
+            continue;
+
+        if (ray.tfar < bestDist)
+        {
+            bestDist = ray.tfar;
+            bestIndex = i;
+
+            break;
+        }
+        */
+
     }
 
     if (bestIndex == -1)
         return;
 
-    const BounceSample& bsample = bounceSamples_[bestIndex];
-    tri = &bakeMesh_->triangles_[bsample.triIndex_];
+    b = samples[bestIndex];
+    tri = &bakeMesh_->triangles_[b->triIndex_];
 
-    float dist = sqrtf(bestDistSq);
+    float dist = sqrtf(bestDistSqr);
 
     if (dist > M_EPSILON && dist <= 16.0f)
     {
-        Vector3 rad = bsample.radiance_/bsample.hits_;
-        rad += bsample.srcColor_;
+        Vector3 rad = b->radiance_/b->hits_;
+        rad += b->srcColor_;
         rad /= 2.0f;
 
         float d = 1.0f - Clamp<float>(dist / 16.0f, 0.01f, 1.0f);

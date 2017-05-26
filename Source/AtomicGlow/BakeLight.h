@@ -22,6 +22,7 @@
 
 #pragma once
 
+#include <Atomic/Core/Mutex.h>
 #include "BakeNode.h"
 
 namespace Atomic
@@ -156,6 +157,8 @@ protected:
 
 
 private:
+
+    static Mutex sortMutex_;
 
     PODVector<BounceSample> bounceSamples_;
 

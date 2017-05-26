@@ -199,7 +199,7 @@ private:
 
     // multithreading
 
-    Mutex meshMutex_;    
+    Mutex meshMutex_;
     unsigned numWorkItems_;
 
     Color ambientColor_;
