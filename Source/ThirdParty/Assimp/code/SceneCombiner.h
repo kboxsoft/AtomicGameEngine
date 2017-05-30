@@ -2,7 +2,8 @@
 Open Asset Import Library (assimp)
 ----------------------------------------------------------------------
 
-Copyright (c) 2006-2015, assimp team
+Copyright (c) 2006-2017, assimp team
+
 All rights reserved.
 
 Redistribution and use of this software in source and binary forms,
@@ -44,19 +45,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef AI_SCENE_COMBINER_H_INC
 #define AI_SCENE_COMBINER_H_INC
 
-#include "../include/assimp/ai_assert.h"
-#include "../include/assimp/types.h"
-#include "Defines.h"
+#include <assimp/ai_assert.h>
+#include <assimp/types.h>
+#include <assimp/Defines.h>
 #include <stddef.h>
 #include <set>
 #include <list>
-// Urho3D: VS2008 compatibility
-#if !defined(_MSC_VER) || (_MSC_VER >= 1600)
 #include <stdint.h>
-#else
-#include "../include/assimp/Compiler/pstdint.h"
-#endif
-//#include "../include/assimp/Compiler/pstdint.h"
 
 #include <vector>
 
@@ -204,7 +199,7 @@ struct SceneHelper
  * The class is currently being used by various postprocessing steps
  * and loaders (ie. LWS).
  */
-class SceneCombiner
+class ASSIMP_API SceneCombiner
 {
     // class cannot be instanced
     SceneCombiner() {}
@@ -278,7 +273,7 @@ public:
     /** Merges two or more materials
      *
      *  The materials should be complementary as much as possible. In case
-     *  of a property present in different materials, the first occurence
+     *  of a property present in different materials, the first occurrence
      *  is used.
      *
      *  @param dest Destination material. Must be empty.
@@ -328,7 +323,7 @@ public:
      *    the master graph), a scene is attached to the root of the master
      *    graph (as an additional child node)
      *  @duplicates List of duplicates. If elem[n] == n the scene is not
-     *    a duplicate. Otherwise elem[n] links scene n to its first occurence.
+     *    a duplicate. Otherwise elem[n] links scene n to its first occurrence.
      */
     static void AttachToGraph ( aiScene* master,
         std::vector<NodeAttachmentInfo>& srcList);

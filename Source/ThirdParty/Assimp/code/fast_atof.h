@@ -11,24 +11,24 @@
 //     to ensure long numbers are handled correctly
 // ------------------------------------------------------------------------------------
 
-// Modified by Lasse Oorni for Urho3D
 
 #ifndef __FAST_A_TO_F_H_INCLUDED__
 #define __FAST_A_TO_F_H_INCLUDED__
 
 #include <cmath>
 #include <limits>
-// Urho3D: added include
-#include <limits.h>
-// Urho3D: VS2008 compatibility
-#if !defined(_MSC_VER) || (_MSC_VER >= 1600)
 #include <stdint.h>
-#else
-#include "../include/assimp/Compiler/pstdint.h"
-#endif
 #include <stdexcept>
+#include <assimp/defs.h>
 
 #include "StringComparison.h"
+
+
+#ifdef _MSC_VER
+#  include <stdint.h>
+#else
+#  include <assimp/Compiler/pstdint.h>
+#endif
 
 namespace Assimp
 {
@@ -351,51 +351,26 @@ inline const char* fast_atoreal_move(const char* c, Real& out, bool check_comma 
 
 // ------------------------------------------------------------------------------------
 // The same but more human.
-inline float fast_atof(const char* c)
+inline ai_real fast_atof(const char* c)
 {
-    float ret;
-    fast_atoreal_move<float>(c, ret);
+    ai_real ret;
+    fast_atoreal_move<ai_real>(c, ret);
     return ret;
 }
 
 
-inline float fast_atof( const char* c, const char** cout)
+inline ai_real fast_atof( const char* c, const char** cout)
 {
-    float ret;
-    *cout = fast_atoreal_move<float>(c, ret);
+    ai_real ret;
+    *cout = fast_atoreal_move<ai_real>(c, ret);
 
     return ret;
 }
 
-inline float fast_atof( const char** inout)
+inline ai_real fast_atof( const char** inout)
 {
-    float ret;
-    *inout = fast_atoreal_move<float>(*inout, ret);
-
-    return ret;
-}
-
-
-inline double fast_atod(const char* c)
-{
-    double ret;
-    fast_atoreal_move<double>(c, ret);
-    return ret;
-}
-
-
-inline double fast_atod( const char* c, const char** cout)
-{
-    double ret;
-    *cout = fast_atoreal_move<double>(c, ret);
-
-    return ret;
-}
-
-inline double fast_atod( const char** inout)
-{
-    double ret;
-    *inout = fast_atoreal_move<double>(*inout, ret);
+    ai_real ret;
+    *inout = fast_atoreal_move<ai_real>(*inout, ret);
 
     return ret;
 }
@@ -403,4 +378,3 @@ inline double fast_atod( const char** inout)
 } // end of namespace Assimp
 
 #endif
-

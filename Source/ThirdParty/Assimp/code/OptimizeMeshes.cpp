@@ -3,7 +3,8 @@
 Open Asset Import Library (assimp)
 ---------------------------------------------------------------------------
 
-Copyright (c) 2006-2015, assimp team
+Copyright (c) 2006-2017, assimp team
+
 
 All rights reserved.
 
@@ -145,12 +146,12 @@ void OptimizeMeshesProcess::Execute( aiScene* pScene)
     meshes.resize( 0 );
     ai_assert(output.size() <= num_old);
 
-    mScene->mNumMeshes = output.size();
+    mScene->mNumMeshes = static_cast<unsigned int>(output.size());
     std::copy(output.begin(),output.end(),mScene->mMeshes);
 
     if (output.size() != num_old) {
         char tmp[512];
-        ::sprintf(tmp,"OptimizeMeshesProcess finished. Input meshes: %u, Output meshes: %u",num_old,pScene->mNumMeshes);
+        ::ai_snprintf(tmp,512,"OptimizeMeshesProcess finished. Input meshes: %u, Output meshes: %u",num_old,pScene->mNumMeshes);
         DefaultLogger::get()->info(tmp);
     } else {
         DefaultLogger::get()->debug( "OptimizeMeshesProcess finished" );
@@ -199,7 +200,7 @@ void OptimizeMeshesProcess::ProcessNode( aiNode* pNode)
             } else {
                 output.push_back(mScene->mMeshes[im]);
             }
-            im = output.size()-1;
+            im = static_cast<unsigned int>(output.size()-1);
         }
     }
 
