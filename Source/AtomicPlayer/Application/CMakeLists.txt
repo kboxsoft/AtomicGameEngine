@@ -21,14 +21,10 @@ if (ANDROID)
 else()
 
 # iOS AtomicPlayer currently disabled
-if (NOT IOS)
 	add_executable(AtomicPlayer ${EXE_TYPE} ${SOURCE_FILES} ${ATOMIC_PLAYER_ICON})
 endif()
-endif()
 
-if (NOT IOS)
     target_link_libraries(AtomicPlayer AtomicJS AtomicPlayerLib AtomicPlayerJS Atomic)
-endif()
 
 if (WIN32)
   # pre-Windows 8 can't count on D3DCompiler_47.dll being on system
