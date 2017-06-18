@@ -104,6 +104,8 @@ SET( Logging_SRCS
 SOURCE_GROUP(Logging FILES ${Logging_SRCS})
 
 SET( Common_SRCS
+  code/CInterfaceIOWrapper.cpp
+  code/scene.cpp
   code/fast_atof.h
   code/qnan.h
   code/BaseImporter.cpp
@@ -244,6 +246,7 @@ ADD_ASSIMP_IMPORTER(COLLADA
   code/ColladaParser.h
   code/ColladaExporter.h
   code/ColladaExporter.cpp
+  code/CreateAnimMesh.cpp
 )
 
 ADD_ASSIMP_IMPORTER(DXF
@@ -429,7 +432,8 @@ ADD_ASSIMP_IMPORTER(BLEND
 ADD_ASSIMP_IMPORTER(IFC
   code/IFCLoader.cpp
   code/IFCLoader.h
-  code/IFCReaderGen.cpp
+  code/IFCReaderGen1.cpp
+  code/IFCReaderGen2.cpp
   code/IFCReaderGen.h
   code/IFCUtil.h
   code/IFCUtil.cpp
